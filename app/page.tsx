@@ -311,7 +311,7 @@ export default function Home() {
             <Sparkles size={15} /> {t("Authentischer Geschmack. Jeden Tag frisch.", "Authentic taste. Fresh every day.")}
           </div>
           <h1>
-            {t("Ihre türkische Speisekammer,", "Your Turkish pantry,")}
+            {t("Ihre Arabisch Speisekammer,", "Your Turkish pantry,")}
             <br />
             <em>{t("ganz in Ihrer Nähe.", "right around the corner.")}</em>
           </h1>
@@ -545,7 +545,7 @@ export default function Home() {
           </p>
           <div className="quote">
             <div className="stars">★★★★★</div>
-            <p>{t("„Eine warme, großzügige Auswahl türkischer und mediterraner Favoriten.“", "“A warm, generous selection of Turkish and Mediterranean favourites.”")}</p>
+            <p>{t("„Eine warme, großzügige Auswahl Arabischr und mediterraner Favoriten.“", "“A warm, generous selection of Turkish and Mediterranean favourites.”")}</p>
           </div>
           <a href={MAP_URL} target="_blank" rel="noreferrer" className="outline-btn">
             <MapPin size={17} /> {t("Route planen", "Get directions")}
@@ -610,7 +610,7 @@ export default function Home() {
                   <small>market · seit 1998</small>
                 </span>
               </a>
-              <p className="footer-note">{t("Türkische & mediterrane Lebensmittel für Ihren Alltag.", "Turkish & Mediterranean groceries for your everyday table.")}</p>
+              <p className="footer-note">{t("Arabisch & mediterrane Lebensmittel für Ihren Alltag.", "Turkish & Mediterranean groceries for your everyday table.")}</p>
             </div>
             <div className="footer-links">
               <div>
