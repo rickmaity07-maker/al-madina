@@ -74,10 +74,19 @@ export default function Home() {
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
 
+  const [productsError, setProductsError] = useState(false);
+
   useEffect(() => {
     fetch("/api/products")
-      .then((res) => res.json())
-      .then((data) => setProducts(data))
+      .then((res) => {
+        if (!res.ok) throw new Error(`Products request failed: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("[storefront] failed to load products", err);
+        setProductsError(true);
+      })
       .finally(() => setLoadingProducts(false));
   }, []);
 
@@ -302,7 +311,7 @@ export default function Home() {
             <Sparkles size={15} /> {t("Authentischer Geschmack. Jeden Tag frisch.", "Authentic taste. Fresh every day.")}
           </div>
           <h1>
-            {t("Ihre Arabisch Speisekammer,", "Your Turkish pantry,")}
+            {t("Ihre türkische Speisekammer,", "Your Turkish pantry,")}
             <br />
             <em>{t("ganz in Ihrer Nähe.", "right around the corner.")}</em>
           </h1>
@@ -434,7 +443,12 @@ export default function Home() {
             ))}
           </div>
         )}
-        {!loadingProducts && filtered.length === 0 && <div className="empty">{t("Keine Produkte gefunden.", "No products found. Try another search or category.")}</div>}
+        {!loadingProducts && productsError && (
+          <div className="empty">
+            {t("Produkte konnten nicht geladen werden. Bitte laden Sie die Seite neu.", "Couldn't load products. Please refresh the page.")}
+          </div>
+        )}
+        {!loadingProducts && !productsError && filtered.length === 0 && <div className="empty">{t("Keine Produkte gefunden.", "No products found. Try another search or category.")}</div>}
 
         {recentlyViewed.length > 0 && (
           <div style={{ marginTop: 48 }}>
@@ -531,7 +545,7 @@ export default function Home() {
           </p>
           <div className="quote">
             <div className="stars">★★★★★</div>
-            <p>{t("„Eine warme, großzügige Auswahl Arabischr und mediterraner Favoriten.“", "“A warm, generous selection of Turkish and Mediterranean favourites.”")}</p>
+            <p>{t("„Eine warme, großzügige Auswahl türkischer und mediterraner Favoriten.“", "“A warm, generous selection of Turkish and Mediterranean favourites.”")}</p>
           </div>
           <a href={MAP_URL} target="_blank" rel="noreferrer" className="outline-btn">
             <MapPin size={17} /> {t("Route planen", "Get directions")}
@@ -596,7 +610,7 @@ export default function Home() {
                   <small>market · seit 1998</small>
                 </span>
               </a>
-              <p className="footer-note">{t("Arabisch & mediterrane Lebensmittel für Ihren Alltag.", "Turkish & Mediterranean groceries for your everyday table.")}</p>
+              <p className="footer-note">{t("Türkische & mediterrane Lebensmittel für Ihren Alltag.", "Turkish & Mediterranean groceries for your everyday table.")}</p>
             </div>
             <div className="footer-links">
               <div>
