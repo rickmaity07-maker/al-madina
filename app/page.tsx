@@ -20,6 +20,8 @@ import {
   X,
   Instagram,
   Facebook,
+  User,
+  ArrowUpDown,
 } from "lucide-react";
 
 const MAP_URL = "https://www.google.com/maps/search/?api=1&query=Al-Madina%20Markt%2C%20Landwehrstra%C3%9Fe%2012%2C%2097421%20Schweinfurt%2C%20Germany";
@@ -37,7 +39,12 @@ type Product = {
   badge: string | null;
   unitNote: string | null;
   sizes: ProductSize[];
+  ratingAverage: number;
+  ratingCount: number;
 };
+
+type SortOption = "relevance" | "price-asc" | "price-desc" | "rating";
+type Account = { id: string; name: string; email: string; phone: string | null };
 
 type CartItem = {
   key: string; // `${productId}:${sizeId}`
@@ -62,12 +69,23 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [language, setLanguage] = useState<"de" | "en">("de");
   const t = (de: string, en: string) => (language === "de" ? de : en);
+  const [sort, setSort] = useState<SortOption>("relevance");
+  const [account, setAccount] = useState<Account | null>(null);
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/products")
       .then((res) => res.json())
       .then((data) => setProducts(data))
       .finally(() => setLoadingProducts(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/account/me")
+      .then((res) => res.json())
+      .then((data) => setAccount(data.user))
+      .catch(() => setAccount(null));
   }, []);
 
   useEffect(() => {
@@ -89,14 +107,35 @@ export default function Home() {
 
   const categories = useMemo(() => ["All", ...Array.from(new Set(products.map((p) => p.category)))], [products]);
 
-  const filtered = useMemo(
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = products.filter((p) => {
+      const matchesCategory = category === "All" || p.category === category;
+      const haystack = `${p.name} ${p.category} ${p.description ?? ""}`.toLowerCase();
+      const matchesQuery = q === "" || haystack.includes(q);
+      return matchesCategory && matchesQuery;
+    });
+
+    const sorted = [...matches];
+    if (sort === "price-asc") sorted.sort((a, b) => (a.sizes[0]?.price ?? 0) - (b.sizes[0]?.price ?? 0));
+    else if (sort === "price-desc") sorted.sort((a, b) => (b.sizes[0]?.price ?? 0) - (a.sizes[0]?.price ?? 0));
+    else if (sort === "rating") sorted.sort((a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount);
+    return sorted;
+  }, [products, category, query, sort]);
+
+  // "Customers also liked" — top-rated products, shown as a recommendations rail.
+  const recommended = useMemo(
     () =>
-      products.filter((p) => {
-        const matchesCategory = category === "All" || p.category === category;
-        const matchesQuery = p.name.toLowerCase().includes(query.toLowerCase());
-        return matchesCategory && matchesQuery;
-      }),
-    [products, category, query]
+      [...products]
+        .filter((p) => p.ratingCount > 0)
+        .sort((a, b) => b.ratingAverage - a.ratingAverage || b.ratingCount - a.ratingCount)
+        .slice(0, 6),
+    [products]
+  );
+
+  const recentlyViewed = useMemo(
+    () => recentlyViewedIds.map((id) => products.find((p) => p.id === id)).filter(Boolean) as Product[],
+    [products, recentlyViewedIds]
   );
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -107,17 +146,17 @@ export default function Home() {
     window.setTimeout(() => setToast(""), 2200);
   }
 
-  function addToCart(product: Product, size: ProductSize) {
+  function addToCart(product: Product, size: ProductSize, qty: number = 1, silent: boolean = false) {
     const key = `${product.id}:${size.id}`;
     setCart((current) => {
       const existing = current.find((item) => item.key === key);
-      if (existing) return current.map((item) => (item.key === key ? { ...item, qty: item.qty + 1 } : item));
+      if (existing) return current.map((item) => (item.key === key ? { ...item, qty: item.qty + qty } : item));
       return [
         ...current,
-        { key, productId: product.id, sizeId: size.id, name: product.name, sizeLabel: size.label, price: size.price, image: product.image, qty: 1 },
+        { key, productId: product.id, sizeId: size.id, name: product.name, sizeLabel: size.label, price: size.price, image: product.image, qty },
       ];
     });
-    showToast(t(`${product.name} (${size.label}) wurde hinzugefügt`, `${product.name} (${size.label}) added to your basket`));
+    if (!silent) showToast(t(`${product.name} (${size.label}) wurde hinzugefügt`, `${product.name} (${size.label}) added to your basket`));
   }
 
   function changeQty(key: string, delta: number) {
@@ -125,8 +164,74 @@ export default function Home() {
   }
 
   function toggleLike(id: string) {
-    setLiked((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+    const isLiked = liked.includes(id);
+    setLiked((current) => (isLiked ? current.filter((x) => x !== id) : [...current, id]));
+    if (account) {
+      if (isLiked) fetch(`/api/account/wishlist/${id}`, { method: "DELETE" }).catch(() => {});
+      else fetch("/api/account/wishlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productId: id }) }).catch(() => {});
+    }
   }
+
+  // Load the customer's saved wishlist once we know who they are.
+  useEffect(() => {
+    if (!account) return;
+    fetch("/api/account/wishlist")
+      .then((res) => res.json())
+      .then((items: Product[]) => setLiked(items.map((p) => p.id)));
+  }, [account]);
+
+  // Track recently viewed products locally (per device), Amazon-style.
+  function trackRecentlyViewed(id: string) {
+    try {
+      const raw = localStorage.getItem("almadina_recently_viewed");
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      const next = [id, ...ids.filter((x) => x !== id)].slice(0, 10);
+      localStorage.setItem("almadina_recently_viewed", JSON.stringify(next));
+      setRecentlyViewedIds(next);
+    } catch {
+      /* localStorage unavailable — recently-viewed just won't persist */
+    }
+  }
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("almadina_recently_viewed");
+      if (raw) setRecentlyViewedIds(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Reorder: ?reorder=<orderId> arrives from the account page's "Reorder" button.
+  useEffect(() => {
+    if (products.length === 0) return;
+    const reorderId = new URLSearchParams(window.location.search).get("reorder");
+    if (!reorderId) return;
+
+    fetch(`/api/account/orders/${reorderId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((order: { items: { sizeId: string | null; qty: number }[] } | null) => {
+        if (!order) return;
+        let added = 0;
+        for (const it of order.items) {
+          if (!it.sizeId) continue;
+          for (const p of products) {
+            const size = p.sizes.find((s) => s.id === it.sizeId);
+            if (size) {
+              addToCart(p, size, it.qty, true);
+              added++;
+              break;
+            }
+          }
+        }
+        showToast(
+          added > 0
+            ? t(`${added} Artikel aus Ihrer letzten Bestellung hinzugefügt`, `Added ${added} items from your past order`)
+            : t("Diese Artikel sind leider nicht mehr verfügbar", "Sorry, those items are no longer available")
+        );
+        window.history.replaceState({}, "", "/");
+      });
+  }, [products]);
 
   function clearCartAfterOrder() {
     setCart([]);
@@ -175,6 +280,12 @@ export default function Home() {
             </button>
             <a className="icon-btn hidden sm:flex" href={`tel:${PHONE.replace(/\s/g, "")}`} aria-label={t("Al-Madina anrufen", "Call Al-Madina")}>
               <Phone size={19} />
+            </a>
+            <a className="icon-btn" href="/track" aria-label={t("Bestellung verfolgen", "Track order")} title={t("Bestellung verfolgen", "Track order")}>
+              <Truck size={19} />
+            </a>
+            <a className="icon-btn" href="/account" aria-label={t("Mein Konto", "My account")} title={account ? account.name : t("Anmelden", "Sign in")}>
+              <User size={19} />
             </a>
             <button className="cart-btn" onClick={() => setCartOpen(true)} aria-label="Open basket">
               <ShoppingBag size={19} />
@@ -280,12 +391,27 @@ export default function Home() {
             {t("Geschäft besuchen", "Visit the store")} <ArrowRight size={16} />
           </a>
         </div>
-        <div className="category-row">
-          {categories.map((c) => (
-            <button key={c} className={category === c ? "category active" : "category"} onClick={() => setCategory(c)}>
-              {c === "All" ? t("Alle", "All") : c}
-            </button>
-          ))}
+        <div className="category-row" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {categories.map((c) => (
+              <button key={c} className={category === c ? "category active" : "category"} onClick={() => setCategory(c)}>
+                {c === "All" ? t("Alle", "All") : c}
+              </button>
+            ))}
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "rgba(24,32,27,.65)" }}>
+            <ArrowUpDown size={14} />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              style={{ border: "1px solid rgba(0,0,0,.12)", borderRadius: 8, padding: "6px 8px", background: "transparent" }}
+            >
+              <option value="relevance">{t("Relevanz", "Relevance")}</option>
+              <option value="price-asc">{t("Preis aufsteigend", "Price: low to high")}</option>
+              <option value="price-desc">{t("Preis absteigend", "Price: high to low")}</option>
+              <option value="rating">{t("Beste Bewertung", "Top rated")}</option>
+            </select>
+          </label>
         </div>
         <div className="mobile-search md:hidden">
           <Search size={17} />
@@ -296,11 +422,67 @@ export default function Home() {
         {!loadingProducts && (
           <div className="product-grid">
             {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} liked={liked.includes(p.id)} onLike={() => toggleLike(p.id)} onAdd={(size) => addToCart(p, size)} t={t} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                liked={liked.includes(p.id)}
+                onLike={() => toggleLike(p.id)}
+                onAdd={(size) => addToCart(p, size)}
+                onOpen={() => { setActiveProduct(p); trackRecentlyViewed(p.id); }}
+                t={t}
+              />
             ))}
           </div>
         )}
         {!loadingProducts && filtered.length === 0 && <div className="empty">{t("Keine Produkte gefunden.", "No products found. Try another search or category.")}</div>}
+
+        {recentlyViewed.length > 0 && (
+          <div style={{ marginTop: 48 }}>
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">{t("Ihr Verlauf", "Your history")}</span>
+                <h2 style={{ fontSize: 26 }}>{t("Zuletzt angesehen", "Recently viewed")}</h2>
+              </div>
+            </div>
+            <div className="product-grid">
+              {recentlyViewed.map((p) => (
+                <ProductCard
+                  key={`rv-${p.id}`}
+                  product={p}
+                  liked={liked.includes(p.id)}
+                  onLike={() => toggleLike(p.id)}
+                  onAdd={(size) => addToCart(p, size)}
+                  onOpen={() => { setActiveProduct(p); trackRecentlyViewed(p.id); }}
+                  t={t}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recommended.length > 0 && (
+          <div style={{ marginTop: 48 }}>
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">{t("Von Kunden geliebt", "Loved by customers")}</span>
+                <h2 style={{ fontSize: 26 }}>{t("Am besten bewertet", "Top rated")}</h2>
+              </div>
+            </div>
+            <div className="product-grid">
+              {recommended.map((p) => (
+                <ProductCard
+                  key={`rec-${p.id}`}
+                  product={p}
+                  liked={liked.includes(p.id)}
+                  onLike={() => toggleLike(p.id)}
+                  onAdd={(size) => addToCart(p, size)}
+                  onOpen={() => { setActiveProduct(p); trackRecentlyViewed(p.id); }}
+                  t={t}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section id="fresh" className="feature-band reveal">
@@ -523,8 +705,39 @@ export default function Home() {
         </div>
       )}
 
-      {checkoutOpen && <CheckoutModal cart={cart} subtotal={subtotal} onClose={() => setCheckoutOpen(false)} onSuccess={clearCartAfterOrder} t={t} />}
+      {checkoutOpen && (
+        <CheckoutModal cart={cart} subtotal={subtotal} account={account} onClose={() => setCheckoutOpen(false)} onSuccess={clearCartAfterOrder} t={t} />
+      )}
+
+      {activeProduct && (
+        <ProductDetailModal
+          product={activeProduct}
+          account={account}
+          liked={liked.includes(activeProduct.id)}
+          onLike={() => toggleLike(activeProduct.id)}
+          onClose={() => setActiveProduct(null)}
+          onAdd={(size) => addToCart(activeProduct, size)}
+          onOpenRelated={(id) => {
+            const p = products.find((pr) => pr.id === id);
+            if (p) {
+              setActiveProduct(p);
+              trackRecentlyViewed(p.id);
+            }
+          }}
+          t={t}
+        />
+      )}
     </main>
+  );
+}
+
+function StarRating({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <span style={{ display: "inline-flex", gap: 1 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} size={size} fill={n <= Math.round(value) ? "currentColor" : "none"} style={{ color: "#d99a2b" }} />
+      ))}
+    </span>
   );
 }
 
@@ -533,12 +746,14 @@ function ProductCard({
   liked,
   onLike,
   onAdd,
+  onOpen,
   t,
 }: {
   product: Product;
   liked: boolean;
   onLike: () => void;
   onAdd: (size: ProductSize) => void;
+  onOpen: () => void;
   t: (de: string, en: string) => string;
 }) {
   const [sizeId, setSizeId] = useState(product.sizes[0]?.id);
@@ -547,16 +762,40 @@ function ProductCard({
 
   return (
     <article className="product-card">
-      <div className="product-image">
+      <div className="product-image" onClick={onOpen} style={{ cursor: "pointer" }}>
         <img src={product.image} alt={product.name} />
         {product.badge && <span className="product-badge">{product.badge}</span>}
-        <button onClick={onLike} className={liked ? "heart liked" : "heart"} aria-label="Like">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onLike();
+          }}
+          className={liked ? "heart liked" : "heart"}
+          aria-label="Like"
+        >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
         </button>
       </div>
       <div className="product-info">
         <span className="product-category">{product.category}</span>
-        <h3>{product.name}</h3>
+        <h3 onClick={onOpen} style={{ cursor: "pointer" }}>
+          {product.name}
+        </h3>
+        {product.ratingCount > 0 ? (
+          <button
+            onClick={onOpen}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+          >
+            <StarRating value={product.ratingAverage} />
+            <small style={{ color: "rgba(24,32,27,.6)" }}>
+              {product.ratingAverage.toFixed(1)} ({product.ratingCount})
+            </small>
+          </button>
+        ) : (
+          <button onClick={onOpen} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+            <small style={{ color: "rgba(24,32,27,.45)" }}>{t("Noch keine Bewertungen", "No reviews yet")}</small>
+          </button>
+        )}
 
         {product.sizes.length > 1 && (
           <div className="size-row">
@@ -587,25 +826,40 @@ function ProductCard({
 function CheckoutModal({
   cart,
   subtotal,
+  account,
   onClose,
   onSuccess,
   t,
 }: {
   cart: CartItem[];
   subtotal: number;
+  account: Account | null;
   onClose: () => void;
   onSuccess: () => void;
   t: (de: string, en: string) => string;
 }) {
   const [fulfillment, setFulfillment] = useState<"DELIVERY" | "PICKUP">("DELIVERY");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(account?.name ?? "");
+  const [email, setEmail] = useState(account?.email ?? "");
+  const [phone, setPhone] = useState(account?.phone ?? "");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<{ orderNumber: string; total: number } | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<{ id: string; label: string; address: string; isDefault: boolean }[]>([]);
+
+  useEffect(() => {
+    if (!account) return;
+    fetch("/api/account/addresses")
+      .then((res) => res.json())
+      .then((data: { id: string; label: string; address: string; isDefault: boolean }[]) => {
+        setSavedAddresses(Array.isArray(data) ? data : []);
+        const def = data?.find((a) => a.isDefault) ?? data?.[0];
+        if (def) setAddress(def.address);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account]);
 
   const deliveryFee = fulfillment === "PICKUP" ? 0 : subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
   const total = subtotal + deliveryFee;
@@ -699,7 +953,19 @@ function CheckoutModal({
           <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input required placeholder={t("Telefonnummer", "Phone number")} value={phone} onChange={(e) => setPhone(e.target.value)} />
           {fulfillment === "DELIVERY" && (
-            <input required placeholder={t("Lieferadresse", "Delivery address")} value={address} onChange={(e) => setAddress(e.target.value)} />
+            <>
+              {savedAddresses.length > 0 && (
+                <select onChange={(e) => setAddress(e.target.value)} defaultValue={address} style={{ padding: "10px 12px", border: "1px solid rgba(0,0,0,.12)", borderRadius: 8 }}>
+                  {savedAddresses.map((a) => (
+                    <option key={a.id} value={a.address}>
+                      {a.label} — {a.address}
+                    </option>
+                  ))}
+                  <option value="">{t("Andere Adresse eingeben…", "Enter a different address…")}</option>
+                </select>
+              )}
+              <input required placeholder={t("Lieferadresse", "Delivery address")} value={address} onChange={(e) => setAddress(e.target.value)} />
+            </>
           )}
           <textarea placeholder={t("Hinweise zur Bestellung (optional)", "Order notes (optional)")} value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </div>
@@ -725,6 +991,249 @@ function CheckoutModal({
           {submitting ? t("Wird gesendet…", "Placing order…") : t("Bestellung aufgeben — Bar bezahlen", "Place order — pay cash")} <Check size={17} />
         </button>
       </form>
+    </div>
+  );
+}
+
+type ReviewData = {
+  id: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  createdAt: string;
+  authorName: string;
+};
+
+function ProductDetailModal({
+  product,
+  account,
+  liked,
+  onLike,
+  onClose,
+  onAdd,
+  onOpenRelated,
+  t,
+}: {
+  product: Product;
+  account: Account | null;
+  liked: boolean;
+  onLike: () => void;
+  onClose: () => void;
+  onAdd: (size: ProductSize) => void;
+  onOpenRelated: (id: string) => void;
+  t: (de: string, en: string) => string;
+}) {
+  const [sizeId, setSizeId] = useState(product.sizes[0]?.id);
+  const size = product.sizes.find((s) => s.id === sizeId) ?? product.sizes[0];
+
+  const [related, setRelated] = useState<{ id: string; name: string; image: string; category: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/products/${product.id}/related`)
+      .then((res) => res.json())
+      .then((data) => setRelated(Array.isArray(data) ? data : []));
+  }, [product.id]);
+
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [average, setAverage] = useState(product.ratingAverage);
+  const [count, setCount] = useState(product.ratingCount);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+
+  const [myRating, setMyRating] = useState(5);
+  const [myTitle, setMyTitle] = useState("");
+  const [myComment, setMyComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  function loadReviews() {
+    setLoadingReviews(true);
+    fetch(`/api/reviews?productId=${product.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setReviews(data.reviews ?? []);
+        setAverage(data.average ?? 0);
+        setCount(data.count ?? 0);
+      })
+      .finally(() => setLoadingReviews(false));
+  }
+
+  useEffect(() => {
+    loadReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  async function submitReview(e: React.FormEvent) {
+    e.preventDefault();
+    setReviewError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: product.id, rating: myRating, title: myTitle, comment: myComment }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReviewError(data.error || t("Bewertung konnte nicht gespeichert werden.", "Could not save your review."));
+        setSubmitting(false);
+        return;
+      }
+      setReviewSubmitted(true);
+      setMyTitle("");
+      setMyComment("");
+      loadReviews();
+    } catch {
+      setReviewError(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again."));
+    }
+    setSubmitting(false);
+  }
+
+  if (!size) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="checkout-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: "90vh", overflow: "auto", maxWidth: 640 }}>
+        <button type="button" className="close-modal" onClick={onClose}>
+          <X />
+        </button>
+
+        <img src={product.image} alt={product.name} style={{ width: "100%", borderRadius: 14, marginBottom: 16, maxHeight: 260, objectFit: "cover" }} />
+
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <span className="eyebrow">{product.category}</span>
+            <h2 style={{ fontSize: 28 }}>{product.name}</h2>
+          </div>
+          <button onClick={onLike} className={liked ? "heart liked" : "heart"} aria-label="Save for later" style={{ position: "static" }}>
+            <Heart size={20} fill={liked ? "currentColor" : "none"} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 14px" }}>
+          <StarRating value={average} size={16} />
+          <span style={{ fontSize: 14, color: "rgba(24,32,27,.65)" }}>
+            {count > 0
+              ? `${average.toFixed(1)} · ${count} ${t(count === 1 ? "Bewertung" : "Bewertungen", count === 1 ? "review" : "reviews")}`
+              : t("Noch keine Bewertungen", "No reviews yet")}
+          </span>
+        </div>
+
+        {product.description && <p>{product.description}</p>}
+
+        {product.sizes.length > 1 && (
+          <div className="size-row" style={{ margin: "10px 0" }}>
+            {product.sizes.map((s) => (
+              <button key={s.id} className={s.id === size.id ? "size-pill active" : "size-pill"} onClick={() => setSizeId(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="checkout-box" style={{ marginBottom: 20 }}>
+          <div>
+            <b>€{size.price.toFixed(2)}</b>
+            {product.unitNote && <small> {product.unitNote}</small>}
+          </div>
+          <button
+            className="primary-btn"
+            onClick={() => {
+              onAdd(size);
+              onClose();
+            }}
+          >
+            <Plus size={17} /> {t("Hinzufügen", "Add to basket")}
+          </button>
+        </div>
+
+        {related.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ fontSize: 18, marginBottom: 10 }}>{t("Häufig zusammen gekauft", "Frequently bought together")}</h3>
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+              {related.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => onOpenRelated(r.id)}
+                  style={{ flex: "0 0 auto", width: 96, textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  <img src={r.image} alt={r.name} style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 10, marginBottom: 4 }} />
+                  <small style={{ display: "block", lineHeight: 1.2 }}>{r.name}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <h3 style={{ fontSize: 18, marginBottom: 10 }}>{t("Bewertungen", "Reviews")}</h3>
+
+
+        {account ? (
+          reviewSubmitted ? (
+            <p style={{ color: "rgba(24,32,27,.7)" }}>
+              <Check size={15} style={{ display: "inline", marginRight: 4 }} />
+              {t("Danke für Ihre Bewertung!", "Thanks for your review!")}
+            </p>
+          ) : (
+            <form onSubmit={submitReview} style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              <div style={{ display: "flex", gap: 4 }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setMyRating(n)}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                    aria-label={`${n} stars`}
+                  >
+                    <Star size={22} fill={n <= myRating ? "currentColor" : "none"} style={{ color: "#d99a2b" }} />
+                  </button>
+                ))}
+              </div>
+              <input
+                placeholder={t("Titel (optional)", "Title (optional)")}
+                value={myTitle}
+                onChange={(e) => setMyTitle(e.target.value)}
+              />
+              <textarea
+                placeholder={t("Ihre Bewertung (optional)", "Your review (optional)")}
+                value={myComment}
+                onChange={(e) => setMyComment(e.target.value)}
+                rows={3}
+              />
+              {reviewError && <div className="checkout-error">{reviewError}</div>}
+              <button className="primary-btn" disabled={submitting}>
+                {submitting ? t("Wird gesendet…", "Submitting…") : t("Bewertung abgeben", "Submit review")}
+              </button>
+            </form>
+          )
+        ) : (
+          <p style={{ marginBottom: 20 }}>
+            <a href="/account" style={{ textDecoration: "underline" }}>
+              {t("Melden Sie sich an", "Sign in")}
+            </a>{" "}
+            {t("um eine Bewertung zu hinterlassen.", "to leave a review.")}
+          </p>
+        )}
+
+        {loadingReviews && <div className="empty">{t("Bewertungen werden geladen…", "Loading reviews…")}</div>}
+        {!loadingReviews && reviews.length === 0 && (
+          <p style={{ color: "rgba(24,32,27,.5)" }}>{t("Seien Sie der Erste, der dieses Produkt bewertet.", "Be the first to review this product.")}</p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {reviews.map((r) => (
+            <div key={r.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <StarRating value={r.rating} size={13} />
+                <b style={{ fontSize: 14 }}>{r.title || r.authorName}</b>
+              </div>
+              {r.comment && <p style={{ fontSize: 14, marginTop: 4 }}>{r.comment}</p>}
+              <small style={{ color: "rgba(24,32,27,.5)" }}>
+                {r.authorName} · {new Date(r.createdAt).toLocaleDateString()}
+              </small>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

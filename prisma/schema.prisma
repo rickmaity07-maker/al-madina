@@ -22,6 +22,47 @@ model Product {
   updatedAt   DateTime      @updatedAt
   sizes       ProductSize[]
   orderItems  OrderItem[]
+  reviews     Review[]
+  wishlistedBy User[]      @relation("Wishlist")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  orders       Order[]
+  reviews      Review[]
+  addresses    Address[]
+  wishlist     Product[] @relation("Wishlist")
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  label     String   // e.g. "Home", "Work"
+  address   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  rating    Int      // 1-5
+  title     String?
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, userId]) // one review per customer per product
 }
 
 model ProductSize {
@@ -50,9 +91,20 @@ model Order {
   total         Float
   status        String      @default("PLACED") // PLACED, PACKED, OUT_FOR_DELIVERY, DELIVERED
   deliveryToken String      @unique
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId        String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   items         OrderItem[]
+  statusEvents  OrderStatusEvent[]
+}
+
+model OrderStatusEvent {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  status    String
+  createdAt DateTime @default(now())
 }
 
 model OrderItem {

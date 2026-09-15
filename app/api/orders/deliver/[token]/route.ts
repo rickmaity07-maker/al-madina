@@ -22,7 +22,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ to
 
   const order = await prisma.order.update({
     where: { deliveryToken: token },
-    data: { status: "DELIVERED" },
+    data: { status: "DELIVERED", statusEvents: { create: { status: "DELIVERED" } } },
     include: { items: true },
   });
 

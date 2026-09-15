@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX } from "lucide-react";
+import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX, BarChart3 } from "lucide-react";
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -69,6 +69,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const navItems = [
     { href: "/admin", label: "Orders", icon: ClipboardList },
     { href: "/admin/products", label: "Products", icon: Package },
+    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
   return (

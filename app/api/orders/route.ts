@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
-import { generateOrderNumber, generateDeliveryToken } from "@/lib/order-utils";
+import { getCustomerSession } from "@/lib/customer-auth";
+import { generateOrderNumber, generateDeliveryToken, LOW_STOCK_THRESHOLD } from "@/lib/order-utils";
 import { broadcastOrderEvent } from "@/lib/events";
-import { sendCustomerConfirmationEmail, sendStoreNotificationEmail } from "@/lib/mailer";
+import { sendCustomerConfirmationEmail, sendStoreNotificationEmail, sendLowStockAlert } from "@/lib/mailer";
 
 const FREE_DELIVERY_THRESHOLD = 40;
 const DELIVERY_FEE = 3.99;
@@ -61,6 +62,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "One of the items in your basket is no longer available." }, { status: 400 });
     }
     const qty = Math.max(1, Math.min(50, Number(it.qty) || 1));
+    if (size.stock < qty) {
+      return NextResponse.json(
+        { error: `Only ${size.stock} of "${size.product.name}" (${size.label}) left in stock.` },
+        { status: 400 }
+      );
+    }
     orderItemsData.push({
       productId: size.productId,
       sizeId: size.id,
@@ -75,22 +82,36 @@ export async function POST(req: NextRequest) {
   const deliveryFee = fulfillment === "PICKUP" ? 0 : subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
   const total = subtotal + deliveryFee;
 
-  const order = await prisma.order.create({
-    data: {
-      orderNumber: generateOrderNumber(),
-      customerName,
-      customerEmail,
-      customerPhone,
-      fulfillment,
-      address: fulfillment === "DELIVERY" ? address : null,
-      notes: notes || null,
-      subtotal,
-      deliveryFee,
-      total,
-      deliveryToken: generateDeliveryToken(),
-      items: { create: orderItemsData },
-    },
-    include: { items: true },
+  // If the customer is logged in, link the order to their account for order history.
+  const customerSession = await getCustomerSession();
+
+  const order = await prisma.$transaction(async (tx) => {
+    const created = await tx.order.create({
+      data: {
+        orderNumber: generateOrderNumber(),
+        customerName,
+        customerEmail,
+        customerPhone,
+        fulfillment,
+        address: fulfillment === "DELIVERY" ? address : null,
+        notes: notes || null,
+        subtotal,
+        deliveryFee,
+        total,
+        deliveryToken: generateDeliveryToken(),
+        userId: customerSession?.userId,
+        items: { create: orderItemsData },
+        statusEvents: { create: { status: "PLACED" } },
+      },
+      include: { items: true },
+    });
+
+    // Decrement stock for each line. Uses `decrement` so concurrent orders stay consistent.
+    for (const it of orderItemsData) {
+      await tx.productSize.update({ where: { id: it.sizeId }, data: { stock: { decrement: it.qty } } });
+    }
+
+    return created;
   });
 
   // Notify the admin dashboard in real time (plays the sound alert there).
@@ -100,6 +121,18 @@ export async function POST(req: NextRequest) {
   // so failures here are logged, not thrown back at the customer.
   sendCustomerConfirmationEmail(order).catch((e: unknown) => console.error("[mailer] customer email failed", e));
   sendStoreNotificationEmail(order).catch((e: unknown) => console.error("[mailer] store email failed", e));
+
+  // Check whether any of the sizes just sold dropped to/below the low-stock threshold.
+  const updatedSizes = await prisma.productSize.findMany({
+    where: { id: { in: orderItemsData.map((it) => it.sizeId) }, stock: { lte: LOW_STOCK_THRESHOLD } },
+    include: { product: true },
+  });
+  if (updatedSizes.length > 0) {
+    broadcastOrderEvent({ type: "low_stock", orderId: order.id, orderNumber: order.orderNumber });
+    sendLowStockAlert(
+      updatedSizes.map((s) => ({ productName: s.product.name, sizeLabel: s.label, stock: s.stock }))
+    ).catch((e: unknown) => console.error("[mailer] low stock email failed", e));
+  }
 
   return NextResponse.json(order, { status: 201 });
 }

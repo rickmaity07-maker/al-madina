@@ -20,7 +20,8 @@ if (process.env.NODE_ENV !== "production") {
 
 export type OrderEvent =
   | { type: "new_order"; orderId: string; orderNumber: string }
-  | { type: "order_updated"; orderId: string; status: string };
+  | { type: "order_updated"; orderId: string; status: string }
+  | { type: "low_stock"; orderId: string; orderNumber: string };
 
 export function broadcastOrderEvent(event: OrderEvent) {
   orderEvents.emit("event", event);

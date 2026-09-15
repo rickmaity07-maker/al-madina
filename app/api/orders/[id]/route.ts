@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const order = await prisma.order.update({
     where: { id },
-    data: { status },
+    data: { status, statusEvents: { create: { status } } },
     include: { items: true },
   });
 

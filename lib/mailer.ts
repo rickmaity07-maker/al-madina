@@ -186,3 +186,36 @@ export async function sendStatusUpdateEmail(order: OrderWithItems) {
   });
   return { sent: true };
 }
+
+/** Email sent to the store owner when a product size drops to/below the low-stock threshold. */
+export async function sendLowStockAlert(items: { productName: string; sizeLabel: string; stock: number }[]) {
+  const transport = getTransport();
+  const storeEmail = process.env.STORE_NOTIFICATION_EMAIL;
+  const adminUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/admin/products`;
+
+  if (items.length === 0) return { sent: false, reason: "Nothing to report" };
+
+  const html = baseWrapper(
+    "Low stock alert",
+    `
+    <p>The following items are running low:</p>
+    <ul style="font-size:14px">
+      ${items.map((i) => `<li><b>${i.productName}</b> (${i.sizeLabel}) — ${i.stock} left</li>`).join("")}
+    </ul>
+    <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Manage products</a></p>
+    `
+  );
+
+  if (!transport || !storeEmail) {
+    console.warn("[mailer] SMTP or STORE_NOTIFICATION_EMAIL not configured — skipping low-stock email");
+    return { sent: false, reason: "SMTP or store email not configured" };
+  }
+
+  await transport.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: storeEmail,
+    subject: `⚠️ Low stock: ${items.map((i) => i.productName).join(", ")}`,
+    html,
+  });
+  return { sent: true };
+}

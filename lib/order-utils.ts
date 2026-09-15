@@ -18,6 +18,9 @@ export function generateDeliveryToken() {
 export const ORDER_STATUSES = ["PLACED", "PACKED", "OUT_FOR_DELIVERY", "DELIVERED"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/** A product size at or below this many units left triggers a low-stock alert. */
+export const LOW_STOCK_THRESHOLD = 5;
+
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   PLACED: "New order",
   PACKED: "Packed",

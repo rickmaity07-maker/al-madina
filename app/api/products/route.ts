@@ -7,10 +7,18 @@ export async function GET() {
   const session = await getAdminSession();
   const products = await prisma.product.findMany({
     where: session ? undefined : { active: true },
-    include: { sizes: { orderBy: { sortOrder: "asc" } } },
+    include: { sizes: { orderBy: { sortOrder: "asc" } }, reviews: { select: { rating: true } } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
-  return NextResponse.json(products);
+
+  // Fold review rows into a simple average/count and drop the raw rows from the payload.
+  const withRatings = products.map(({ reviews, ...product }) => {
+    const count = reviews.length;
+    const average = count === 0 ? 0 : reviews.reduce((sum, r) => sum + r.rating, 0) / count;
+    return { ...product, ratingAverage: Math.round(average * 10) / 10, ratingCount: count };
+  });
+
+  return NextResponse.json(withRatings);
 }
 
 // Admin only: create a product with its sizes.
