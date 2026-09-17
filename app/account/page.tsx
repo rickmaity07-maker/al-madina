@@ -43,8 +43,16 @@ export default function AccountPage() {
 
   function loadAccount() {
     fetch("/api/account/me")
-      .then((res) => res.json())
-      .then((data) => setAccount(data.user));
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("Not logged in");
+        }
+        const data = await res.json();
+        setAccount(data.user || null);
+      })
+      .catch(() => {
+        setAccount(null);
+      });
   }
 
   useEffect(() => {
