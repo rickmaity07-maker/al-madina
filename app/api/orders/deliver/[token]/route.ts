@@ -1,7 +1,8 @@
+// app/api/orders/deliver/[token]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { broadcastOrderEvent } from "@/lib/events";
 import { sendStatusUpdateEmail } from "@/lib/mailer";
+import { getOrderByToken, setOrderStatus } from "@/lib/orders";
 
 // No admin login here on purpose: the delivery person opens a link with a
 // long random token in it (printed on the packing slip / sent by SMS/WhatsApp).
@@ -9,7 +10,7 @@ import { sendStatusUpdateEmail } from "@/lib/mailer";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const order = await prisma.order.findUnique({ where: { deliveryToken: token }, include: { items: true } });
+  const order = await getOrderByToken(token);
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
   return NextResponse.json(order);
 }
@@ -17,14 +18,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 // The delivery person taps "Mark as received" — this is the only action this endpoint allows.
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const existing = await prisma.order.findUnique({ where: { deliveryToken: token } });
+  const existing = await getOrderByToken(token);
   if (!existing) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
-  const order = await prisma.order.update({
-    where: { deliveryToken: token },
-    data: { status: "DELIVERED", statusEvents: { create: { status: "DELIVERED" } } },
-    include: { items: true },
-  });
+  await setOrderStatus(existing.id, "DELIVERED");
+  const order = await getOrderByToken(token);
+  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   broadcastOrderEvent({ type: "order_updated", orderId: order.id, status: order.status });
   sendStatusUpdateEmail(order).catch((e: unknown) => console.error("[mailer] status email failed", e));

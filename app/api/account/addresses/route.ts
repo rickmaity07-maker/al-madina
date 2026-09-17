@@ -1,3 +1,13 @@
+// app/api/account/addresses/route.ts
+//
+// CONTRACT CHANGE: the old Address model stored one free-text `address`
+// field. The new schema splits it into line1/line2/city/postalCode, plus
+// latitude/longitude for the distance-based delivery fee. The account
+// page's "add address" form currently posts { label, address, isDefault }
+// and will need a small update to collect these fields separately (and
+// ideally geocode them) — the request body below is what it should send
+// once that's done.
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCustomerSession } from "@/lib/customer-auth";
@@ -39,21 +49,13 @@ export async function POST(req: NextRequest) {
   const session = await getCustomerSession();
   if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
-  const body = await req.json().catch(() => ({}));
-  const label = body.label;
-  const isDefault = body.isDefault;
-  
-  // Support both the frontend's single 'address' string and separate fields
-  const line1 = body.line1 || body.address;
-  const line2 = body.line2 || null;
-  const city = body.city || "Schweinfurt";
-  const postalCode = body.postalCode || "97421";
-  const latitude = body.latitude ?? null;
-  const longitude = body.longitude ?? null;
+  const { label, line1, line2, city, postalCode, latitude, longitude, isDefault } = await req
+    .json()
+    .catch(() => ({}));
 
-  if (!label || !line1) {
+  if (!label || !line1 || !city || !postalCode) {
     return NextResponse.json(
-      { error: "label and address/line1 are required." },
+      { error: "label, line1, city and postalCode are required." },
       { status: 400 }
     );
   }
@@ -67,8 +69,8 @@ export async function POST(req: NextRequest) {
   const created = await prisma.$queryRaw<AddressRow[]>`
     insert into addresses (user_id, label, line1, line2, city, postal_code, latitude, longitude, is_default)
     values (
-      ${session.userId}::uuid, ${label}, ${line1}, ${line2}, ${city}, ${postalCode},
-      ${latitude}, ${longitude}, ${!!isDefault}
+      ${session.userId}::uuid, ${label}, ${line1}, ${line2 || null}, ${city}, ${postalCode},
+      ${latitude ?? null}, ${longitude ?? null}, ${!!isDefault}
     )
     returning id, label, line1, line2, city, postal_code as "postalCode",
               latitude, longitude, is_default as "isDefault"

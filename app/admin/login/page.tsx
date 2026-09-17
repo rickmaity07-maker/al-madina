@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
 
         <button
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-[#a12e3d] to-[#7a1a26] text-white font-semibold py-2.5 text-sm disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-linear-to-br from-[#a12e3d] to-[#7a1a26] text-white font-semibold py-2.5 text-sm disabled:opacity-60"
         >
           <Lock size={15} /> {loading ? "Signing in…" : "Sign in"}
         </button>

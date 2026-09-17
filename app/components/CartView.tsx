@@ -32,8 +32,8 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
 
   if (cart.items.length === 0) {
     return (
-      <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-(--line) py-16 text-center">
-        <p className="text-(--muted)">Your cart is empty.</p>
+      <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-[var(--line)] py-16 text-center">
+        <p className="text-[var(--muted)]">Your cart is empty.</p>
         <Link href="/" className="btn-primary">
           Browse products
         </Link>
@@ -43,10 +43,10 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
 
   return (
     <div className={`mt-8 flex flex-col gap-6 ${isPending ? "opacity-60 transition-opacity" : ""}`}>
-      <ul className="flex flex-col divide-y divide-(--line)">
+      <ul className="flex flex-col divide-y divide-[var(--line)]">
         {cart.items.map((item) => (
           <li key={item.id} className="flex items-center gap-4 py-4">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-(--cream)">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--cream)]">
               {item.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -58,13 +58,13 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
             </div>
 
             <div className="flex-1">
-              <Link href={`/products/${item.product_slug}`} className="font-medium text-(--ink)">
+              <Link href={`/products/${item.product_slug}`} className="font-medium text-[var(--ink)]">
                 {item.product_name}
               </Link>
-              <p className="text-sm text-(--muted)">{item.size_label}</p>
+              <p className="text-sm text-[var(--muted)]">{item.size_label}</p>
             </div>
 
-            <div className="flex items-center rounded-full border border-(--line)">
+            <div className="flex items-center rounded-full border border-[var(--line)]">
               <button
                 type="button"
                 onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}
@@ -85,14 +85,14 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
               </button>
             </div>
 
-            <span className="w-20 text-right font-semibold text-(--ink)">
+            <span className="w-20 text-right font-semibold text-[var(--ink)]">
               {formatCurrency(item.price * item.quantity)}
             </span>
 
             <button
               type="button"
               onClick={() => startTransition(() => removeItem(item.id))}
-              className="text-sm text-(--muted) hover:text-[#b3261e]"
+              className="text-sm text-[var(--muted)] hover:text-[#b3261e]"
             >
               Remove
             </button>
@@ -100,10 +100,10 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
         ))}
       </ul>
 
-      <div className="flex flex-col gap-3 border-t border-(--line) pt-5">
+      <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-5">
         <div className="flex items-center justify-between text-lg">
-          <span className="text-(--ink)">Subtotal</span>
-          <span className="font-semibold text-(--green)">{formatCurrency(cart.subtotal)}</span>
+          <span className="text-[var(--ink)]">Subtotal</span>
+          <span className="font-semibold text-[var(--green)]">{formatCurrency(cart.subtotal)}</span>
         </div>
 
         {belowMinimum && (

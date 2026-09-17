@@ -58,8 +58,8 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
               className={[
                 "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
                 isSelected
-                  ? "border-(--green) bg-(--green)-white"
-                  : "border-(--line)hite text-(--ink) hover:border-(--green)",
+                  ? "border-[var(--green)] bg-[var(--green)] text-white"
+                  : "border-[var(--line)] bg-white text-[var(--ink)] hover:border-[var(--green)]",
                 isOut ? "cursor-not-allowed opacity-40" : "",
               ].join(" ")}
             >
@@ -71,22 +71,22 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
       </div>
 
       <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-(--green)">
+        <span className="text-2xl font-semibold text-[var(--green)]">
           {formatCurrency(selected.price)}
         </span>
         {selected.compare_at_price && (
-          <span className="text-sm text-(--muted) line-through">
+          <span className="text-sm text-[var(--muted)] line-through">
             {formatCurrency(selected.compare_at_price)}
           </span>
         )}
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center rounded-full border border-(--line)">
+        <div className="flex items-center rounded-full border border-[var(--line)]">
           <button
             type="button"
             onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            className="px-3 py-2 text-lg text-(--ink)"
+            className="px-3 py-2 text-lg text-[var(--ink)]"
             aria-label="Decrease quantity"
           >
             –
@@ -95,7 +95,7 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
           <button
             type="button"
             onClick={() => setQuantity((q) => Math.min(selected.stock_quantity, q + 1))}
-            className="px-3 py-2 text-lg text-(--ink)"
+            className="px-3 py-2 text-lg text-[var(--ink)]"
             aria-label="Increase quantity"
           >
             +
@@ -123,7 +123,7 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
       )}
 
       {selected.stock_quantity > 0 && selected.stock_quantity <= 5 && (
-        <p className="text-sm text-(--lime)">Only {selected.stock_quantity} left</p>
+        <p className="text-sm text-[var(--lime)]">Only {selected.stock_quantity} left</p>
       )}
     </div>
   );

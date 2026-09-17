@@ -24,9 +24,9 @@ export function ProductCard({
   return (
     <Link
       href={`/products/${slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-(--line) bg-white transition-shadow hover:shadow-[0_8px_24px_rgba(161,46,61,0.12)]"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-white transition-shadow hover:shadow-[0_8px_24px_rgba(161,46,61,0.12)]"
     >
-      <div className="relative aspect-square bg-(--cream)">
+      <div className="relative aspect-square bg-[var(--cream)]">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -35,24 +35,24 @@ export function ProductCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-(--muted)">
+          <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">
             No image
           </div>
         )}
         {badge && (
-          <span className="absolute left-3 top-3 rounded-full bg-(--lime) px-3 py-1 text-xs font-semibold text-(--deep)">
+          <span className="absolute left-3 top-3 rounded-full bg-[var(--lime)] px-3 py-1 text-xs font-semibold text-[var(--deep)]">
             {badge}
           </span>
         )}
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
-        <h3 className="font-serif text-lg leading-tight text-(--ink)">{name}</h3>
-        {unitNote && <p className="text-sm text-(--muted)">{unitNote}</p>}
+        <h3 className="font-serif text-lg leading-tight text-[var(--ink)]">{name}</h3>
+        {unitNote && <p className="text-sm text-[var(--muted)]">{unitNote}</p>}
 
         <div className="mt-auto flex items-baseline gap-1 pt-3">
-          {variantCount > 1 && <span className="text-xs text-(--muted)">from</span>}
-          <span className="text-lg font-semibold text-(--green)">
+          {variantCount > 1 && <span className="text-xs text-[var(--muted)]">from</span>}
+          <span className="text-lg font-semibold text-[var(--green)]">
             {formatCurrency(fromPrice)}
           </span>
         </div>

@@ -13,7 +13,7 @@ export default async function CartPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
-      <h1 className="font-serif text-4xl text-(--ink)">Your cart</h1>
+      <h1 className="font-serif text-4xl text-[var(--ink)]">Your cart</h1>
       <CartView initialCart={cart} cartMinimum={cartMinimum} />
     </main>
   );
