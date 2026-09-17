@@ -9,21 +9,94 @@ import { sendCustomerConfirmationEmail, sendStoreNotificationEmail, sendLowStock
 const FREE_DELIVERY_THRESHOLD = 40;
 const DELIVERY_FEE = 3.99;
 
+type OrderRow = {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  fulfillment: string;
+  address: string | null;
+  notes: string | null;
+  subtotal: string | number;
+  delivery_fee: string | number;
+  total: string | number;
+  delivery_token: string;
+  user_id: string | null;
+  status: string;
+  created_at: Date;
+};
+
+type VariantRow = {
+  id: string;
+  product_id: string;
+  sku: string;
+  size_label: string;
+  price: string | number;
+  stock_quantity: number;
+  product_name: string;
+  product_active: boolean;
+};
+
 // Admin only: list all orders, newest first.
 export async function GET() {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const orders = await prisma.order.findMany({
-    include: { items: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const ordersRaw = await prisma.$queryRaw<OrderRow[]>`
+    select id, order_number, customer_name, customer_email, customer_phone,
+           fulfillment, address, notes, subtotal, delivery_fee,
+           total, delivery_token, user_id, status, created_at
+    from orders
+    order by created_at desc
+  `;
+
+  const orders = await Promise.all(
+    ordersRaw.map(async (o) => {
+      const items = await prisma.$queryRaw<any[]>`
+        select id, order_id, product_id, variant_id,
+               name, size_label, price, qty
+        from order_items
+        where order_id = ${o.id}::uuid
+      `;
+      return {
+        id: o.id,
+        orderNumber: o.order_number,
+        customerName: o.customer_name,
+        customerEmail: o.customer_email,
+        customerPhone: o.customer_phone,
+        fulfillment: o.fulfillment,
+        address: o.address,
+        notes: o.notes,
+        subtotal: Number(o.subtotal),
+        deliveryFee: Number(o.delivery_fee),
+        total: Number(o.total),
+        deliveryToken: o.delivery_token,
+        userId: o.user_id,
+        status: o.status,
+        createdAt: o.created_at,
+        updatedAt: o.created_at,
+        items: items.map(it => ({
+          id: it.id,
+          orderId: it.order_id,
+          productId: it.product_id,
+          variantId: it.variant_id,
+          sizeId: it.variant_id,
+          name: it.name,
+          sizeLabel: it.size_label,
+          price: Number(it.price),
+          qty: it.qty,
+        })),
+      };
+    })
+  );
+
   return NextResponse.json(orders);
 }
 
 // Public: place a new order. Cash only — no payment is processed here at all.
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const { customerName, customerEmail, customerPhone, fulfillment, address, notes, items } = body;
 
   if (!customerName || !customerEmail || !customerPhone) {
@@ -39,17 +112,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Your basket is empty." }, { status: 400 });
   }
 
-  // Re-price every line server-side from the database — never trust prices sent by the client.
-  const sizeIds = items.map((it: { sizeId: string }) => it.sizeId);
-  const sizes = await prisma.productSize.findMany({
-    where: { id: { in: sizeIds } },
-    include: { product: true },
-  });
-  const sizeMap = new Map(sizes.map((s) => [s.id, s]));
+  const variantIds = items.map((it: { sizeId?: string; variantId?: string }) => it.sizeId || it.variantId).filter(Boolean);
+  
+  if (variantIds.length === 0) {
+    return NextResponse.json({ error: "Invalid items in basket." }, { status: 400 });
+  }
+
+  const variants = await prisma.$queryRaw<VariantRow[]>`
+    select v.id, v.product_id, v.sku, v.size_label, v.price, v.stock_quantity,
+           p.name as product_name, p.is_active as product_active
+    from product_variants v
+    join products p on p.id = v.product_id
+    where v.id = ANY(${variantIds}::uuid[])
+  `;
+
+  const variantMap = new Map(variants.map((v) => [v.id, v]));
 
   const orderItemsData: {
     productId: string;
-    sizeId: string;
+    variantId: string;
     name: string;
     sizeLabel: string;
     price: number;
@@ -57,23 +138,24 @@ export async function POST(req: NextRequest) {
   }[] = [];
 
   for (const it of items) {
-    const size = sizeMap.get(it.sizeId);
-    if (!size || !size.product.active) {
+    const vId = it.sizeId || it.variantId;
+    const variant = variantMap.get(vId);
+    if (!variant || !variant.product_active) {
       return NextResponse.json({ error: "One of the items in your basket is no longer available." }, { status: 400 });
     }
     const qty = Math.max(1, Math.min(50, Number(it.qty) || 1));
-    if (size.stock < qty) {
+    if (variant.stock_quantity < qty) {
       return NextResponse.json(
-        { error: `Only ${size.stock} of "${size.product.name}" (${size.label}) left in stock.` },
+        { error: `Only ${variant.stock_quantity} of "${variant.product_name}" (${variant.size_label}) left in stock.` },
         { status: 400 }
       );
     }
     orderItemsData.push({
-      productId: size.productId,
-      sizeId: size.id,
-      name: size.product.name,
-      sizeLabel: size.label,
-      price: size.price,
+      productId: variant.product_id,
+      variantId: variant.id,
+      name: variant.product_name,
+      sizeLabel: variant.size_label,
+      price: Number(variant.price),
       qty,
     });
   }
@@ -82,57 +164,128 @@ export async function POST(req: NextRequest) {
   const deliveryFee = fulfillment === "PICKUP" ? 0 : subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
   const total = subtotal + deliveryFee;
 
-  // If the customer is logged in, link the order to their account for order history.
   const customerSession = await getCustomerSession();
+  const orderNumber = generateOrderNumber();
+  const deliveryToken = generateDeliveryToken();
 
-  const order = await prisma.$transaction(async (tx) => {
-    const created = await tx.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        customerName,
-        customerEmail,
-        customerPhone,
-        fulfillment,
-        address: fulfillment === "DELIVERY" ? address : null,
-        notes: notes || null,
-        subtotal,
-        deliveryFee,
-        total,
-        deliveryToken: generateDeliveryToken(),
-        userId: customerSession?.userId,
-        items: { create: orderItemsData },
-        statusEvents: { create: { status: "PLACED" } },
-      },
-      include: { items: true },
-    });
+  const orderId = await prisma.$transaction(async (tx) => {
+    let orderInsert;
+    if (customerSession?.userId) {
+      orderInsert = await tx.$queryRaw<{ id: string }[]>`
+        insert into orders (
+          order_number, customer_name, customer_email, customer_phone,
+          fulfillment, address, notes, subtotal, delivery_fee, total,
+          delivery_token, user_id, status
+        ) values (
+          ${orderNumber}, ${customerName}, ${customerEmail}, ${customerPhone},
+          ${fulfillment}, ${fulfillment === "DELIVERY" ? address : null}, ${notes || null},
+          ${subtotal}, ${deliveryFee}, ${total}, ${deliveryToken},
+          ${customerSession.userId}::uuid, 'PLACED'
+        )
+        returning id
+      `;
+    } else {
+      orderInsert = await tx.$queryRaw<{ id: string }[]>`
+        insert into orders (
+          order_number, customer_name, customer_email, customer_phone,
+          fulfillment, address, notes, subtotal, delivery_fee, total,
+          delivery_token, user_id, status
+        ) values (
+          ${orderNumber}, ${customerName}, ${customerEmail}, ${customerPhone},
+          ${fulfillment}, ${fulfillment === "DELIVERY" ? address : null}, ${notes || null},
+          ${subtotal}, ${deliveryFee}, ${total}, ${deliveryToken},
+          null, 'PLACED'
+        )
+        returning id
+      `;
+    }
+    const newOrderId = orderInsert[0].id;
 
-    // Decrement stock for each line. Uses `decrement` so concurrent orders stay consistent.
     for (const it of orderItemsData) {
-      await tx.productSize.update({ where: { id: it.sizeId }, data: { stock: { decrement: it.qty } } });
+      await tx.$executeRaw`
+        insert into order_items (order_id, product_id, variant_id, name, size_label, price, qty)
+        values (${newOrderId}::uuid, ${it.productId}::uuid, ${it.variantId}::uuid, ${it.name}, ${it.sizeLabel}, ${it.price}, ${it.qty})
+      `;
+      await tx.$executeRaw`
+        update product_variants
+        set stock_quantity = stock_quantity - ${it.qty}
+        where id = ${it.variantId}::uuid
+      `;
     }
 
-    return created;
+    await tx.$executeRaw`
+      insert into order_status_history (order_id, status)
+      values (${newOrderId}::uuid, 'PLACED')
+    `;
+
+    return newOrderId;
   });
 
-  // Notify the admin dashboard in real time (plays the sound alert there).
-  broadcastOrderEvent({ type: "new_order", orderId: order.id, orderNumber: order.orderNumber });
+  const createdOrders = await prisma.$queryRaw<OrderRow[]>`
+    select id, order_number, customer_name, customer_email, customer_phone,
+           fulfillment, address, notes, subtotal, delivery_fee,
+           total, delivery_token, user_id, status, created_at
+    from orders
+    where id = ${orderId}::uuid
+    limit 1
+  `;
+  const orderRecord = createdOrders[0];
+  const itemsRecord = await prisma.$queryRaw<any[]>`
+    select id, order_id, product_id, variant_id,
+           name, size_label, price, qty
+    from order_items
+    where order_id = ${orderId}::uuid
+  `;
 
-  // Fire off both emails. We don't want a slow/broken mail server to break checkout,
-  // so failures here are logged, not thrown back at the customer.
-  sendCustomerConfirmationEmail(order).catch((e: unknown) => console.error("[mailer] customer email failed", e));
-  sendStoreNotificationEmail(order).catch((e: unknown) => console.error("[mailer] store email failed", e));
+  const fullOrder = {
+    id: orderRecord.id,
+    orderNumber: orderRecord.order_number,
+    customerName: orderRecord.customer_name,
+    customerEmail: orderRecord.customer_email,
+    customerPhone: orderRecord.customer_phone,
+    fulfillment: orderRecord.fulfillment,
+    address: orderRecord.address,
+    notes: orderRecord.notes,
+    subtotal: Number(orderRecord.subtotal),
+    deliveryFee: Number(orderRecord.delivery_fee),
+    total: Number(orderRecord.total),
+    deliveryToken: orderRecord.delivery_token,
+    userId: orderRecord.user_id,
+    status: orderRecord.status,
+    createdAt: orderRecord.created_at,
+    updatedAt: orderRecord.created_at,
+    items: itemsRecord.map((it) => ({
+      id: it.id,
+      orderId: it.order_id,
+      productId: it.product_id,
+      variantId: it.variant_id,
+      sizeId: it.variant_id,
+      name: it.name,
+      sizeLabel: it.size_label,
+      price: Number(it.price),
+      qty: it.qty,
+    })),
+  };
 
-  // Check whether any of the sizes just sold dropped to/below the low-stock threshold.
-  const updatedSizes = await prisma.productSize.findMany({
-    where: { id: { in: orderItemsData.map((it) => it.sizeId) }, stock: { lte: LOW_STOCK_THRESHOLD } },
-    include: { product: true },
-  });
-  if (updatedSizes.length > 0) {
-    broadcastOrderEvent({ type: "low_stock", orderId: order.id, orderNumber: order.orderNumber });
+  broadcastOrderEvent({ type: "new_order", orderId: fullOrder.id, orderNumber: fullOrder.orderNumber });
+
+  sendCustomerConfirmationEmail(fullOrder).catch((e: unknown) => console.error("[mailer] customer email failed", e));
+  sendStoreNotificationEmail(fullOrder).catch((e: unknown) => console.error("[mailer] store email failed", e));
+
+  const variantIdsToCheck = orderItemsData.map(it => it.variantId);
+  const updatedVariants = await prisma.$queryRaw<any[]>`
+    select v.id, v.stock_quantity as stock, v.size_label as label, p.name as product_name
+    from product_variants v
+    join products p on p.id = v.product_id
+    where v.id = ANY(${variantIdsToCheck}::uuid[]) and v.stock_quantity <= ${LOW_STOCK_THRESHOLD}
+  `;
+
+  if (updatedVariants.length > 0) {
+    broadcastOrderEvent({ type: "low_stock", orderId: fullOrder.id, orderNumber: fullOrder.orderNumber });
     sendLowStockAlert(
-      updatedSizes.map((s) => ({ productName: s.product.name, sizeLabel: s.label, stock: s.stock }))
+      updatedVariants.map((s) => ({ productName: s.product_name, sizeLabel: s.label, stock: s.stock }))
     ).catch((e: unknown) => console.error("[mailer] low stock email failed", e));
   }
 
-  return NextResponse.json(order, { status: 201 });
+  return NextResponse.json(fullOrder, { status: 201 });
 }
