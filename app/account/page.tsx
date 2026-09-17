@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function AccountPage() {
-  const [account, setAccount] = useState<Account | null | undefined>(undefined); // undefined = loading
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<WishlistProduct[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -124,33 +124,35 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b]">
-      <div className="mx-auto max-w-2xl px-5 py-10">
-        <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
-          <ArrowLeft size={16} /> Back to shop
+    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] py-10 px-4 md:px-8">
+      <div className="w-full max-w-3xl mx-auto">
+        <Link href="/" className="text-btn inline-flex mb-8">
+          <ArrowLeft size={16} className="mr-2" /> Back to shop
         </Link>
 
         {account === undefined && <p>Loading…</p>}
 
         {account === null && (
-          <div className="checkout-modal" style={{ position: "static", boxShadow: "none", padding: 0 }}>
-            <span className="eyebrow">Account</span>
-            <h1 style={{ fontSize: 32, marginBottom: 18 }}>{mode === "login" ? "Sign in" : "Create an account"}</h1>
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5 mx-auto">
+            <span className="eyebrow block mb-1">Account</span>
+            <h1 className="text-2xl mb-6">{mode === "login" ? "Sign in" : "Create an account"}</h1>
 
-            <div className="fulfillment-toggle" style={{ marginBottom: 18 }}>
-              <button type="button" className={mode === "login" ? "fulfillment-btn active" : "fulfillment-btn"} onClick={() => setMode("login")}>
+            <div className="fulfillment-toggle mb-6 flex gap-2">
+              <button type="button" className={`flex-1 py-2 rounded-lg border ${mode === "login" ? "bg-black text-white" : "bg-transparent text-black"}`} onClick={() => setMode("login")}>
                 Sign in
               </button>
-              <button type="button" className={mode === "register" ? "fulfillment-btn active" : "fulfillment-btn"} onClick={() => setMode("register")}>
+              <button type="button" className={`flex-1 py-2 rounded-lg border ${mode === "register" ? "bg-black text-white" : "bg-transparent text-black"}`} onClick={() => setMode("register")}>
                 Register
               </button>
             </div>
 
-            <form onSubmit={submit} className="checkout-fields">
-              {mode === "register" && <input required placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />}
-              <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <form onSubmit={submit} className="flex flex-col gap-3">
               {mode === "register" && (
-                <input placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <input required placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
+              )}
+              <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
+              {mode === "register" && (
+                <input placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
               )}
               <input
                 required
@@ -158,9 +160,10 @@ export default function AccountPage() {
                 placeholder={mode === "register" ? "Password (min. 8 characters)" : "Password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black"
               />
-              {error && <div className="checkout-error">{error}</div>}
-              <button className="primary-btn full" disabled={submitting}>
+              {error && <div className="text-red-600 bg-red-50 p-2 rounded-lg text-sm">{error}</div>}
+              <button className="w-full bg-black text-white py-2.5 rounded-lg mt-2" disabled={submitting}>
                 {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
               </button>
             </form>
@@ -168,106 +171,126 @@ export default function AccountPage() {
         )}
 
         {account && (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <UserIcon size={22} />
+          <div className="space-y-12">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-6 border-b border-black/10">
+              <div className="flex items-center gap-4">
+                <div className="bg-white p-3 rounded-full border border-black/5 shadow-sm">
+                  <UserIcon size={24} />
+                </div>
                 <div>
-                  <h1 style={{ fontSize: 24 }}>{account.name}</h1>
-                  <small style={{ color: "rgba(24,32,27,.6)" }}>{account.email}</small>
+                  <h1 className="text-2xl font-medium">{account.name}</h1>
+                  <small className="text-black/60 text-sm">{account.email}</small>
                 </div>
               </div>
-              <button className="text-btn" onClick={logout}>
+              <button className="text-sm flex items-center gap-2 text-black/70 hover:text-black" onClick={logout}>
                 <LogOut size={16} /> Log out
               </button>
             </div>
 
-            <h2 style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Package size={18} /> Order history
-            </h2>
-
-            {orders.length === 0 && <p style={{ color: "rgba(24,32,27,.55)" }}>No orders yet — your placed orders will show up here.</p>}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 36 }}>
-              {orders.map((o) => (
-                <div key={o.id} className="checkout-box" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <Link href={`/account/orders/${o.id}`} style={{ fontWeight: 700, textDecoration: "underline" }}>
-                      #{o.orderNumber}
-                    </Link>
-                    <span>{STATUS_LABEL[o.status] ?? o.status}</span>
-                  </div>
-                  <small style={{ color: "rgba(24,32,27,.55)" }}>
-                    {new Date(o.createdAt).toLocaleDateString()} · {o.fulfillment === "DELIVERY" ? "Delivery" : "Pickup"}
-                  </small>
-                  <ul style={{ fontSize: 14, marginTop: 4 }}>
-                    {o.items.map((it) => (
-                      <li key={it.id}>
-                        {it.qty}× {it.name} {it.sizeLabel ? `(${it.sizeLabel})` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 700, borderTop: "1px solid var(--line)", paddingTop: 6 }}>
-                    <span>Total (cash) · €{o.total.toFixed(2)}</span>
-                    <Link href={`/?reorder=${o.id}`} className="text-btn" style={{ fontWeight: 500 }}>
-                      <RefreshCw size={14} /> Reorder
-                    </Link>
-                  </div>
+            {/* Orders */}
+            <section>
+              <h2 className="text-lg flex items-center gap-2 mb-4">
+                <Package size={18} /> Order history
+              </h2>
+              {orders.length === 0 ? (
+                <p className="text-black/50">No orders yet — your placed orders will show up here.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {orders.map((o) => (
+                    <div key={o.id} className="bg-white p-5 rounded-xl border border-black/5 shadow-sm flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <Link href={`/account/orders/${o.id}`} className="font-semibold underline">
+                          #{o.orderNumber}
+                        </Link>
+                        <span className="text-sm bg-black/5 px-3 py-1 rounded-full">{STATUS_LABEL[o.status] ?? o.status}</span>
+                      </div>
+                      <small className="text-black/60">
+                        {new Date(o.createdAt).toLocaleDateString()} · {o.fulfillment === "DELIVERY" ? "Delivery" : "Pickup"}
+                      </small>
+                      <ul className="text-sm mt-2 space-y-1">
+                        {o.items.map((it) => (
+                          <li key={it.id}>
+                            {it.qty}× {it.name} {it.sizeLabel ? `(${it.sizeLabel})` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between items-center font-semibold border-t border-black/10 pt-3 mt-2">
+                        <span>Total (cash) · €{o.total.toFixed(2)}</span>
+                        <Link href={`/?reorder=${o.id}`} className="text-sm flex items-center gap-2 text-[#a12e3d]">
+                          <RefreshCw size={14} /> Reorder
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </section>
 
-            <h2 style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Heart size={18} /> Wishlist
-            </h2>
-            {wishlist.length === 0 && (
-              <p style={{ color: "rgba(24,32,27,.55)", marginBottom: 36 }}>
-                Items you save with the heart icon on the shop page will show up here.
-              </p>
-            )}
-            {wishlist.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12, marginBottom: 36 }}>
-                {wishlist.map((p) => (
-                  <div key={p.id} style={{ position: "relative" }}>
-                    <Link href="/">
-                      <img src={p.image} alt={p.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 10 }} />
-                      <small style={{ display: "block", marginTop: 4 }}>{p.name}</small>
-                    </Link>
-                    <button
-                      onClick={() => removeWishlistItem(p.id)}
-                      aria-label="Remove"
-                      style={{ position: "absolute", top: 4, right: 4, background: "rgba(255,255,255,.9)", border: "none", borderRadius: "50%", width: 26, height: 26, cursor: "pointer" }}
-                    >
-                      <Trash2 size={13} />
+            {/* Wishlist */}
+            <section>
+              <h2 className="text-lg flex items-center gap-2 mb-4">
+                <Heart size={18} /> Wishlist
+              </h2>
+              {wishlist.length === 0 ? (
+                <p className="text-black/50">Items you save with the heart icon on the shop page will show up here.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {wishlist.map((p) => (
+                    <div key={p.id} className="relative group">
+                      <Link href="/" className="block">
+                        <img src={p.image} alt={p.name} className="w-full aspect-square object-cover rounded-xl border border-black/5" />
+                        <span className="block mt-2 text-sm font-medium truncate">{p.name}</span>
+                      </Link>
+                      <button
+                        onClick={() => removeWishlistItem(p.id)}
+                        aria-label="Remove"
+                        className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full shadow hover:bg-red-50 text-black/70 hover:text-red-600 transition"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Addresses */}
+            <section>
+              <h2 className="text-lg flex items-center gap-2 mb-4">
+                <MapPin size={18} /> Saved addresses
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                {addresses.map((a) => (
+                  <div key={a.id} className="bg-white p-4 rounded-xl border border-black/5 shadow-sm flex justify-between items-start">
+                    <div>
+                      <span className="font-semibold">{a.label}</span> {a.isDefault && <span className="text-xs text-black/50 ml-1">(default)</span>}
+                      <p className="text-sm text-black/70 mt-1">{a.address}</p>
+                    </div>
+                    <button onClick={() => removeAddress(a.id)} className="text-black/40 hover:text-red-600 transition p-1" aria-label="Remove address">
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}
               </div>
-            )}
-
-            <h2 style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <MapPin size={18} /> Saved addresses
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-              {addresses.map((a) => (
-                <div key={a.id} className="checkout-box" style={{ alignItems: "center" }}>
-                  <div>
-                    <b>{a.label}</b> {a.isDefault && <small style={{ color: "rgba(24,32,27,.5)" }}>(default)</small>}
-                    <div style={{ fontSize: 14 }}>{a.address}</div>
-                  </div>
-                  <button onClick={() => removeAddress(a.id)} className="text-btn" aria-label="Remove address">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <form onSubmit={addAddress} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input placeholder="Label (e.g. Home)" value={newAddressLabel} onChange={(e) => setNewAddressLabel(e.target.value)} style={{ flex: "0 0 140px" }} />
-              <input placeholder="Full address" value={newAddressText} onChange={(e) => setNewAddressText(e.target.value)} style={{ flex: "1 1 220px" }} />
-              <button className="primary-btn">
-                <Plus size={15} /> Add
-              </button>
-            </form>
+              <form onSubmit={addAddress} className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-black/5 shadow-sm">
+                <input 
+                  placeholder="Label (e.g. Home)" 
+                  value={newAddressLabel} 
+                  onChange={(e) => setNewAddressLabel(e.target.value)} 
+                  className="w-full sm:w-1/3 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black text-sm" 
+                />
+                <input 
+                  placeholder="Full address" 
+                  value={newAddressText} 
+                  onChange={(e) => setNewAddressText(e.target.value)} 
+                  className="w-full flex-1 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black text-sm" 
+                />
+                <button className="bg-black text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm whitespace-nowrap">
+                  <Plus size={16} /> Add Address
+                </button>
+              </form>
+            </section>
           </div>
         )}
       </div>

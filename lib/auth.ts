@@ -4,9 +4,12 @@ import { cookies } from "next/headers";
 const COOKIE_NAME = "almadina_admin_session";
 const SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
 
+export type AdminRole = "OWNER" | "STAFF";
+
 export type AdminTokenPayload = {
-  username: string;
-  role: "admin" | "delivery";
+  username: string; // email for a real AdminUser account, or the .env ADMIN_USERNAME for the fallback login
+  role: AdminRole;
+  adminId: string | null; // null when logged in via the .env fallback account
 };
 
 export function signAdminToken(payload: AdminTokenPayload) {
@@ -19,6 +22,11 @@ export function verifyAdminToken(token: string): AdminTokenPayload | null {
   } catch {
     return null;
   }
+}
+
+/** OWNER-only areas (analytics, product editing, review moderation, team management). */
+export function isOwner(session: AdminTokenPayload | null): boolean {
+  return session?.role === "OWNER";
 }
 
 export const ADMIN_COOKIE_NAME = COOKIE_NAME;

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/auth";
+import { getAdminSession, isOwner } from "@/lib/auth";
 import { LOW_STOCK_THRESHOLD } from "@/lib/order-utils";
 
 export async function GET() {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

@@ -36,14 +36,14 @@ export default function TrackOrderPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b]">
-      <div className="mx-auto max-w-lg px-5 py-10">
+    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] flex flex-col items-center py-12 px-4 md:px-8">
+      <div className="w-full max-w-xl bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
         <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
           <ArrowLeft size={16} /> Back to shop
         </Link>
 
-        <span className="eyebrow">Order tracking</span>
-        <h1 style={{ fontSize: 30, marginBottom: 18 }}>Track your order</h1>
+        <span className="eyebrow block mb-1">Order tracking</span>
+        <h1 style={{ fontSize: 30, marginBottom: 24 }}>Track your order</h1>
 
         {!order && (
           <form onSubmit={submit} className="checkout-fields">
@@ -52,20 +52,28 @@ export default function TrackOrderPage() {
               placeholder="Order number (e.g. AM-20260905-4F2K)"
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value)}
+              className="w-full mb-3 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-[#a12e3d]"
             />
-            <input required type="email" placeholder="Email used at checkout" value={email} onChange={(e) => setEmail(e.target.value)} />
-            {error && <div className="checkout-error">{error}</div>}
-            <button className="primary-btn full" disabled={loading}>
+            <input 
+              required 
+              type="email" 
+              placeholder="Email used at checkout" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full mb-4 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-[#a12e3d]" 
+            />
+            {error && <div className="checkout-error mb-4">{error}</div>}
+            <button className="primary-btn full w-full flex justify-center items-center gap-2 py-2.5 rounded-lg bg-[#a12e3d] text-white" disabled={loading}>
               <Search size={16} /> {loading ? "Searching…" : "Track order"}
             </button>
           </form>
         )}
 
         {order && (
-          <div className="checkout-modal" style={{ position: "static", boxShadow: "none", padding: 0 }}>
+          <div>
             <h2 style={{ fontSize: 22, marginBottom: 16 }}>#{order.orderNumber}</h2>
             <OrderTimeline order={order} />
-            <button className="text-btn" style={{ marginTop: 16 }} onClick={() => setOrder(null)}>
+            <button className="text-btn mt-6 font-medium text-[#a12e3d]" onClick={() => setOrder(null)}>
               Track another order
             </button>
           </div>

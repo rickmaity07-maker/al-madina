@@ -53,7 +53,7 @@ Open `.env` and fill in:
 
 | Variable | What it is |
 |---|---|
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Login for `/admin`. Change these before going live. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Bootstrap **Owner** login for `/admin` — use it once to log in and create real named accounts on the Team page (see "Admin roles" below). Change these before going live either way, since this login always works as a fallback. |
 | `JWT_SECRET` | Random string that signs admin login sessions. Generate with `openssl rand -base64 48`. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Your email sending account (see "Email" below). |
 | `STORE_NOTIFICATION_EMAIL` | Your client's inbox — where new-order alerts go. |
@@ -124,12 +124,23 @@ console instead of sent (see `lib/mailer.ts`), so nothing breaks during setup.
   2. Emails the customer a confirmation.
   3. Emails your client (`STORE_NOTIFICATION_EMAIL`) with the order details.
   4. Instantly pushes the order to the admin dashboard and **plays a sound**.
-- **Admin portal (`/admin`)** — protected by login.
+- **Admin portal (`/admin`)** — protected by login, with two roles:
+  - **Owner** — full access: Orders, Products, Analytics, and Team.
+  - **Staff** — Orders only. Analytics, Products, review moderation, and Team
+    are hidden from the nav and rejected server-side if called directly, so
+    it's enforced even if someone guesses the URL.
   - **Orders tab** — see every order live (new orders arrive without refreshing,
     with a sound + screen flash). Buttons move an order **New → Packed → Out for
-    delivery**. Each order has a copyable one-time link.
-  - **Products tab** — add/edit/delete products, including their size options
-    and prices, and show/hide items from the shop.
+    delivery**. Each order has a copyable one-time link. Open to both roles.
+  - **Products tab** *(Owner only)* — add/edit/delete products, including their
+    size options, prices, and stock, and show/hide items from the shop.
+  - **Analytics tab** *(Owner only)* — 30-day revenue, top products, low stock.
+  - **Admin accounts** — there's deliberately no in-app screen for creating
+    staff logins or changing roles — for a single local store, that's one more
+    thing that doesn't need to be click-around-able, and it closes off "an
+    Owner session that gets compromised can mint more Owner accounts" as an
+    attack path. Manage accounts directly in Neon's SQL console instead — see
+    "Managing admin accounts" below.
 - **Delivery confirmation (`/deliver/[token]`)** — the link mentioned above.
   Send it to the delivery person (SMS/WhatsApp) for that specific order. They
   open it — no login needed — see the order and cash amount to collect, and tap
@@ -137,7 +148,62 @@ console instead of sent (see `lib/mailer.ts`), so nothing breaks during setup.
   clicks received" step. For pickup orders, the same link/button works to
   confirm the customer picked it up.
 
-## 6. Deploying for real
+## 6. Managing admin accounts (via Neon's SQL console)
+
+Admin logins live in the `AdminUser` table. There's no in-app screen for this
+on purpose (see above) — do it directly in Neon's SQL editor.
+
+**Step 1 — generate a password hash.** SQL can't hash a password for you, so
+do this once locally first (uses `bcryptjs`, already a project dependency):
+
+```bash
+node -e "require('bcryptjs').hash(process.argv[1], 10).then(h => console.log(h))" "TheirPasswordHere"
+```
+
+This prints something like `$2a$10$abcdefghijklmnopqrstuv...` — copy the whole
+string, including the `$2a$10$` at the start.
+
+**Create an account** (swap in the email, hash, name, and role — `'OWNER'` or `'STAFF'`):
+
+```sql
+INSERT INTO "AdminUser" (id, email, "passwordHash", name, role, "createdAt", "updatedAt")
+VALUES (
+  gen_random_uuid()::text,
+  'someone@example.com',
+  '$2a$10$paste-the-full-hash-here',
+  'Their Name',
+  'OWNER',
+  now(),
+  now()
+);
+```
+
+If `gen_random_uuid()` errors as "function does not exist," run
+`CREATE EXTENSION IF NOT EXISTS pgcrypto;` once first, then retry the insert.
+
+**Change someone's role:**
+
+```sql
+UPDATE "AdminUser" SET role = 'STAFF', "updatedAt" = now() WHERE email = 'someone@example.com';
+```
+
+**Remove an account:**
+
+```sql
+DELETE FROM "AdminUser" WHERE email = 'someone@example.com';
+```
+
+**List all accounts:**
+
+```sql
+SELECT id, email, name, role, "createdAt" FROM "AdminUser" ORDER BY "createdAt";
+```
+
+The `.env` `ADMIN_USERNAME`/`ADMIN_PASSWORD` login still works alongside all
+of this and always grants Owner access — keep it as your fallback in case you
+ever get locked out of the database itself.
+
+## 7. Deploying for real
 
 This runs on any Node.js host (a small VPS, Railway, Render, etc.). A couple of
 notes:

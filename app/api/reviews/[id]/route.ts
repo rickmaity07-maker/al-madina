@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCustomerSession } from "@/lib/customer-auth";
-import { getAdminSession } from "@/lib/auth";
+import { getAdminSession, isOwner } from "@/lib/auth";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,8 +10,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const review = await prisma.review.findUnique({ where: { id } });
   if (!review) return NextResponse.json({ error: "Review not found." }, { status: 404 });
 
-  const isOwner = customerSession && review.userId === customerSession.userId;
-  if (!isOwner && !adminSession) {
+  const isOwnerCustomer = customerSession && review.userId === customerSession.userId;
+  if (!isOwnerCustomer && !isOwner(adminSession)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

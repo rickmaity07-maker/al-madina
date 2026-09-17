@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/auth";
+import { getAdminSession, isOwner } from "@/lib/auth";
 
 // Public: list products (storefront). Admins get inactive products too.
 export async function GET() {
@@ -24,7 +24,7 @@ export async function GET() {
 // Admin only: create a product with its sizes.
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
   const body = await req.json();
   const { name, category, description, image, badge, unitNote, active, sizes } = body;

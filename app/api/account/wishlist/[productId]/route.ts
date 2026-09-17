@@ -1,3 +1,4 @@
+// app/api/account/wishlist/[productId]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCustomerSession } from "@/lib/customer-auth";
@@ -7,10 +8,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ prod
   if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
   const { productId } = await params;
-  await prisma.user.update({
-    where: { id: session.userId },
-    data: { wishlist: { disconnect: { id: productId } } },
-  });
+  await prisma.$executeRaw`
+    delete from wishlists where user_id = ${session.userId}::uuid and product_id = ${productId}::uuid
+  `;
 
   return NextResponse.json({ ok: true });
 }

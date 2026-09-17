@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Lock, ShoppingBag } from "lucide-react";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,21 +13,26 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
+      
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Login failed.");
         setLoading(false);
         return;
       }
-      router.push("/admin");
-      router.refresh();
-    } catch {
+      
+      // Success! Force a hard redirect to ensure the browser sends the new auth cookie 
+      // to the Next.js middleware protecting the /admin routes.
+      window.location.href = "/admin";
+      
+    } catch (err) {
       setError("Could not reach the server.");
       setLoading(false);
     }

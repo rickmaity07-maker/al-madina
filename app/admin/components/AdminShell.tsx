@@ -4,13 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX, BarChart3 } from "lucide-react";
 
+type AdminMe = { username: string; role: "OWNER" | "STAFF"; adminId: string | null };
+
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [soundOn, setSoundOn] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [me, setMe] = useState<AdminMe | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundOnRef = useRef(false);
+
+  useEffect(() => {
+    fetch("/api/admin/me")
+      .then((res) => res.json())
+      .then((data) => setMe(data.admin));
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("almadina_admin_sound");
@@ -66,10 +75,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     router.refresh();
   }
 
+  const isOwner = me?.role === "OWNER";
   const navItems = [
     { href: "/admin", label: "Orders", icon: ClipboardList },
-    { href: "/admin/products", label: "Products", icon: Package },
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    ...(isOwner
+      ? [
+          { href: "/admin/products", label: "Products", icon: Package },
+          { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+        ]
+      : []),
   ];
 
   return (
@@ -87,6 +101,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <div className="text-[10px] uppercase tracking-wider text-black/40">Admin</div>
           </div>
         </a>
+
+        {me && (
+          <div className="mb-4 px-1">
+            <div className="text-sm font-medium truncate">{me.username}</div>
+            <span
+              className={`inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 mt-1 ${
+                isOwner ? "bg-[#a12e3d]/10 text-[#a12e3d]" : "bg-black/5 text-black/50"
+              }`}
+            >
+              {me.role}
+            </span>
+          </div>
+        )}
 
         <nav className="flex flex-col gap-1">
           {navItems.map(({ href, label, icon: Icon }) => (

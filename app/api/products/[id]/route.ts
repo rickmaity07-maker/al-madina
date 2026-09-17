@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/auth";
+import { getAdminSession, isOwner } from "@/lib/auth";
 
 // Admin only: update a product and fully replace its size list
 // (simplest, most predictable way to keep sizes in sync with the admin form).
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json();
@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 // Admin only: delete a product.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
   const { id } = await params;
   await prisma.product.delete({ where: { id } }).catch(() => null);
