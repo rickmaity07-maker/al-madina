@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCustomerSession } from "@/lib/customer-auth";
 
-type WishlistProductRow = { id: string; name: string; image: string | null; category: string | null };
+type WishlistProductRow = { id: string; name: string; slug: string; image: string | null; category: string | null };
 type VariantRow = {
   productId: string;
   id: string;
@@ -18,7 +18,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
   const products = await prisma.$queryRaw<WishlistProductRow[]>`
-    select p.id, p.name, p.image_url as "image", c.name as "category"
+    select p.id, p.name, p.slug, p.image_url as "image", c.name as "category"
     from wishlists w
     join products p on p.id = w.product_id
     left join categories c on c.id = p.category_id

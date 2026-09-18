@@ -15,8 +15,8 @@ type Order = {
   createdAt: string;
   items: OrderItem[];
 };
-type WishlistProduct = { id: string; name: string; image: string; category: string };
-type Address = { id: string; label: string; address: string; isDefault: boolean };
+type WishlistProduct = { id: string; name: string; slug: string; image: string | null; category: string | null };
+type Address = { id: string; label: string; line1: string; city: string; postalCode: string; isDefault: boolean };
 
 const STATUS_LABEL: Record<string, string> = {
   PLACED: "Placed",
@@ -25,13 +25,19 @@ const STATUS_LABEL: Record<string, string> = {
   DELIVERED: "Delivered",
 };
 
+const muted = { color: "rgba(24,32,27,.6)" };
+const mutedLight = { color: "rgba(24,32,27,.45)" };
+
 export default function AccountPage() {
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<WishlistProduct[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [newAddressLabel, setNewAddressLabel] = useState("");
-  const [newAddressText, setNewAddressText] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newLine1, setNewLine1] = useState("");
+  const [newCity, setNewCity] = useState("");
+  const [newPostalCode, setNewPostalCode] = useState("");
+  const [addressError, setAddressError] = useState("");
   const [mode, setMode] = useState<"login" | "register">("login");
 
   const [name, setName] = useState("");
@@ -44,15 +50,11 @@ export default function AccountPage() {
   function loadAccount() {
     fetch("/api/account/me")
       .then(async (res) => {
-        if (!res.ok) {
-          throw new Error("Not logged in");
-        }
+        if (!res.ok) throw new Error("Not logged in");
         const data = await res.json();
         setAccount(data.user || null);
       })
-      .catch(() => {
-        setAccount(null);
-      });
+      .catch(() => setAccount(null));
   }
 
   useEffect(() => {
@@ -79,14 +81,28 @@ export default function AccountPage() {
 
   async function addAddress(e: React.FormEvent) {
     e.preventDefault();
-    if (!newAddressLabel || !newAddressText) return;
-    await fetch("/api/account/addresses", {
+    setAddressError("");
+    if (!newLabel || !newLine1 || !newCity || !newPostalCode) return;
+    const res = await fetch("/api/account/addresses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: newAddressLabel, address: newAddressText, isDefault: addresses.length === 0 }),
+      body: JSON.stringify({
+        label: newLabel,
+        line1: newLine1,
+        city: newCity,
+        postalCode: newPostalCode,
+        isDefault: addresses.length === 0,
+      }),
     });
-    setNewAddressLabel("");
-    setNewAddressText("");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAddressError(data.error || "Couldn't save that address.");
+      return;
+    }
+    setNewLabel("");
+    setNewLine1("");
+    setNewCity("");
+    setNewPostalCode("");
     loadAddresses();
   }
 
@@ -134,33 +150,45 @@ export default function AccountPage() {
   return (
     <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] py-10 px-4 md:px-8">
       <div className="w-full max-w-3xl mx-auto">
-        <Link href="/" className="text-btn inline-flex mb-8">
-          <ArrowLeft size={16} className="mr-2" /> Back to shop
+        <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 32 }}>
+          <ArrowLeft size={16} /> Back to shop
         </Link>
 
-        {account === undefined && <p>Loading…</p>}
+        {account === undefined && <p style={muted}>Loading…</p>}
 
         {account === null && (
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5 mx-auto">
-            <span className="eyebrow block mb-1">Account</span>
-            <h1 className="text-2xl mb-6">{mode === "login" ? "Sign in" : "Create an account"}</h1>
+          <div className="w-full max-w-md mx-auto bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
+            <span className="eyebrow" style={{ display: "block", marginBottom: 4 }}>
+              Account
+            </span>
+            <h1 style={{ fontSize: 30, margin: "8px 0 20px" }}>{mode === "login" ? "Sign in" : "Create an account"}</h1>
 
-            <div className="fulfillment-toggle mb-6 flex gap-2">
-              <button type="button" className={`flex-1 py-2 rounded-lg border ${mode === "login" ? "bg-black text-white" : "bg-transparent text-black"}`} onClick={() => setMode("login")}>
+            <div className="size-row" style={{ margin: "0 0 20px" }}>
+              <button
+                type="button"
+                className={mode === "login" ? "size-pill active" : "size-pill"}
+                style={{ flex: 1, padding: "9px 0", fontSize: 12 }}
+                onClick={() => setMode("login")}
+              >
                 Sign in
               </button>
-              <button type="button" className={`flex-1 py-2 rounded-lg border ${mode === "register" ? "bg-black text-white" : "bg-transparent text-black"}`} onClick={() => setMode("register")}>
+              <button
+                type="button"
+                className={mode === "register" ? "size-pill active" : "size-pill"}
+                style={{ flex: 1, padding: "9px 0", fontSize: 12 }}
+                onClick={() => setMode("register")}
+              >
                 Register
               </button>
             </div>
 
-            <form onSubmit={submit} className="flex flex-col gap-3">
+            <form onSubmit={submit} className="checkout-fields">
               {mode === "register" && (
-                <input required placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
+                <input required placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
               )}
-              <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
+              <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
               {mode === "register" && (
-                <input placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black" />
+                <input placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
               )}
               <input
                 required
@@ -168,10 +196,9 @@ export default function AccountPage() {
                 placeholder={mode === "register" ? "Password (min. 8 characters)" : "Password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black"
               />
-              {error && <div className="text-red-600 bg-red-50 p-2 rounded-lg text-sm">{error}</div>}
-              <button className="w-full bg-black text-white py-2.5 rounded-lg mt-2" disabled={submitting}>
+              {error && <div className="checkout-error">{error}</div>}
+              <button className="primary-btn full" style={{ marginTop: 4 }} disabled={submitting}>
                 {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
               </button>
             </form>
@@ -179,28 +206,33 @@ export default function AccountPage() {
         )}
 
         {account && (
-          <div className="space-y-12">
+          <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
             {/* Header */}
-            <div className="flex items-center justify-between pb-6 border-b border-black/10">
-              <div className="flex items-center gap-4">
-                <div className="bg-white p-3 rounded-full border border-black/5 shadow-sm">
-                  <UserIcon size={24} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 24,
+                borderBottom: "1px solid var(--line)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div className="icon-btn" style={{ width: 48, height: 48 }}>
+                  <UserIcon size={22} />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-medium">{account.name}</h1>
-                  <small className="text-black/60 text-sm">{account.email}</small>
+                  <h1 style={{ fontSize: 24, margin: 0 }}>{account.name}</h1>
+                  <small style={muted}>{account.email}</small>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 {account.role && (
-                  <Link
-                    href="/admin"
-                    className="text-sm flex items-center gap-2 rounded-full bg-[#a12e3d] text-white px-4 py-2 hover:bg-[#8a2734]"
-                  >
+                  <Link href="/admin" className="primary-btn">
                     <ShieldCheck size={16} /> Admin
                   </Link>
                 )}
-                <button className="text-sm flex items-center gap-2 text-black/70 hover:text-black" onClick={logout}>
+                <button className="text-btn" onClick={logout} style={{ fontSize: 13 }}>
                   <LogOut size={16} /> Log out
                 </button>
               </div>
@@ -208,34 +240,59 @@ export default function AccountPage() {
 
             {/* Orders */}
             <section>
-              <h2 className="text-lg flex items-center gap-2 mb-4">
+              <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
                 <Package size={18} /> Order history
               </h2>
               {orders.length === 0 ? (
-                <p className="text-black/50">No orders yet — your placed orders will show up here.</p>
+                <p style={muted}>No orders yet — your placed orders will show up here.</p>
               ) : (
-                <div className="grid grid-cols-1 gap-4">
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {orders.map((o) => (
-                    <div key={o.id} className="bg-white p-5 rounded-xl border border-black/5 shadow-sm flex flex-col gap-2">
-                      <div className="flex justify-between items-center">
-                        <Link href={`/account/orders/${o.id}`} className="font-semibold underline">
+                    <div
+                      key={o.id}
+                      className="bg-white rounded-xl border border-black/5 shadow-sm"
+                      style={{ padding: 20, display: "flex", flexDirection: "column", gap: 8 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <Link href={`/account/orders/${o.id}`} style={{ fontWeight: 700, textDecoration: "underline" }}>
                           #{o.orderNumber}
                         </Link>
-                        <span className="text-sm bg-black/5 px-3 py-1 rounded-full">{STATUS_LABEL[o.status] ?? o.status}</span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            background: "rgba(161,46,61,.08)",
+                            color: "var(--green)",
+                            padding: "5px 12px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          {STATUS_LABEL[o.status] ?? o.status}
+                        </span>
                       </div>
-                      <small className="text-black/60">
+                      <small style={muted}>
                         {new Date(o.createdAt).toLocaleDateString()} · {o.fulfillment === "DELIVERY" ? "Delivery" : "Pickup"}
                       </small>
-                      <ul className="text-sm mt-2 space-y-1">
+                      <ul style={{ fontSize: 13, marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                         {o.items.map((it) => (
                           <li key={it.id}>
                             {it.qty}× {it.name} {it.sizeLabel ? `(${it.sizeLabel})` : ""}
                           </li>
                         ))}
                       </ul>
-                      <div className="flex justify-between items-center font-semibold border-t border-black/10 pt-3 mt-2">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontWeight: 700,
+                          borderTop: "1px solid var(--line)",
+                          paddingTop: 12,
+                          marginTop: 8,
+                        }}
+                      >
                         <span>Total (cash) · €{o.total.toFixed(2)}</span>
-                        <Link href={`/?reorder=${o.id}`} className="text-sm flex items-center gap-2 text-[#a12e3d]">
+                        <Link href={`/?reorder=${o.id}`} className="text-btn" style={{ fontSize: 13, padding: 0 }}>
                           <RefreshCw size={14} /> Reorder
                         </Link>
                       </div>
@@ -247,25 +304,37 @@ export default function AccountPage() {
 
             {/* Wishlist */}
             <section>
-              <h2 className="text-lg flex items-center gap-2 mb-4">
+              <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
                 <Heart size={18} /> Wishlist
               </h2>
               {wishlist.length === 0 ? (
-                <p className="text-black/50">Items you save with the heart icon on the shop page will show up here.</p>
+                <p style={muted}>Items you save with the heart icon on the shop page will show up here.</p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 16 }}>
                   {wishlist.map((p) => (
-                    <div key={p.id} className="relative group">
-                      <Link href="/" className="block">
-                        <img src={p.image} alt={p.name} className="w-full aspect-square object-cover rounded-xl border border-black/5" />
-                        <span className="block mt-2 text-sm font-medium truncate">{p.name}</span>
+                    <div key={p.id} style={{ position: "relative" }}>
+                      <Link href={`/products/${p.slug}`} style={{ display: "block" }}>
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", borderRadius: 14 }}
+                            className="border border-black/5"
+                          />
+                        ) : (
+                          <div
+                            style={{ width: "100%", aspectRatio: "1/1", borderRadius: 14, background: "#eee" }}
+                          />
+                        )}
+                        <span style={{ display: "block", marginTop: 8, fontSize: 14, fontWeight: 600 }}>{p.name}</span>
                       </Link>
                       <button
                         onClick={() => removeWishlistItem(p.id)}
                         aria-label="Remove"
-                        className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-full shadow hover:bg-red-50 text-black/70 hover:text-red-600 transition"
+                        className="heart liked"
+                        style={{ position: "absolute", top: 8, right: 8, width: 30, height: 30 }}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   ))}
@@ -275,37 +344,53 @@ export default function AccountPage() {
 
             {/* Addresses */}
             <section>
-              <h2 className="text-lg flex items-center gap-2 mb-4">
+              <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
                 <MapPin size={18} /> Saved addresses
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {addresses.map((a) => (
-                  <div key={a.id} className="bg-white p-4 rounded-xl border border-black/5 shadow-sm flex justify-between items-start">
-                    <div>
-                      <span className="font-semibold">{a.label}</span> {a.isDefault && <span className="text-xs text-black/50 ml-1">(default)</span>}
-                      <p className="text-sm text-black/70 mt-1">{a.address}</p>
+              {addresses.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 20 }}>
+                  {addresses.map((a) => (
+                    <div
+                      key={a.id}
+                      className="bg-white rounded-xl border border-black/5 shadow-sm"
+                      style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}
+                    >
+                      <div>
+                        <span style={{ fontWeight: 700 }}>{a.label}</span>
+                        {a.isDefault && <small style={{ ...mutedLight, marginLeft: 6 }}>(default)</small>}
+                        <p style={{ fontSize: 13, marginTop: 4, ...muted }}>
+                          {a.line1}, {a.postalCode} {a.city}
+                        </p>
+                      </div>
+                      <button onClick={() => removeAddress(a.id)} className="heart" style={{ position: "static", width: 30, height: 30 }} aria-label="Remove address">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <button onClick={() => removeAddress(a.id)} className="text-black/40 hover:text-red-600 transition p-1" aria-label="Remove address">
-                      <Trash2 size={16} />
-                    </button>
+                  ))}
+                </div>
+              )}
+
+              <form
+                onSubmit={addAddress}
+                className="checkout-fields bg-white rounded-xl border border-black/5 shadow-sm"
+                style={{ padding: 16, gridTemplateColumns: "1fr 1fr", maxWidth: 560 }}
+              >
+                <input
+                  placeholder="Label (e.g. Home)"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  style={{ gridColumn: "1 / -1" }}
+                />
+                <input placeholder="Street and house number" value={newLine1} onChange={(e) => setNewLine1(e.target.value)} style={{ gridColumn: "1 / -1" }} />
+                <input placeholder="Postal code" value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value)} />
+                <input placeholder="City" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
+                {addressError && (
+                  <div className="checkout-error" style={{ gridColumn: "1 / -1" }}>
+                    {addressError}
                   </div>
-                ))}
-              </div>
-              <form onSubmit={addAddress} className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-black/5 shadow-sm">
-                <input 
-                  placeholder="Label (e.g. Home)" 
-                  value={newAddressLabel} 
-                  onChange={(e) => setNewAddressLabel(e.target.value)} 
-                  className="w-full sm:w-1/3 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black text-sm" 
-                />
-                <input 
-                  placeholder="Full address" 
-                  value={newAddressText} 
-                  onChange={(e) => setNewAddressText(e.target.value)} 
-                  className="w-full flex-1 rounded-lg border border-black/10 px-3 py-2 outline-none focus:border-black text-sm" 
-                />
-                <button className="bg-black text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 text-sm whitespace-nowrap">
-                  <Plus size={16} /> Add Address
+                )}
+                <button className="primary-btn" style={{ gridColumn: "1 / -1", justifyContent: "center" }}>
+                  <Plus size={16} /> Add address
                 </button>
               </form>
             </section>
