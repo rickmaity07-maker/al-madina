@@ -1,5 +1,5 @@
 // app/api/orders/deliver/[token]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { broadcastOrderEvent } from "@/lib/events";
 import { sendStatusUpdateEmail } from "@/lib/mailer";
 import { getOrderByToken, setOrderStatus } from "@/lib/orders";
@@ -26,7 +26,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ to
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   broadcastOrderEvent({ type: "order_updated", orderId: order.id, status: order.status });
-  sendStatusUpdateEmail(order).catch((e: unknown) => console.error("[mailer] status email failed", e));
+
+  // See app/api/orders/route.ts for why this is after() rather than a bare .catch().
+  after(async () => {
+    await sendStatusUpdateEmail(order).catch((e: unknown) => console.error("[mailer] status email failed", e));
+  });
 
   return NextResponse.json(order);
 }

@@ -1,5 +1,5 @@
 // app/api/orders/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import { ORDER_STATUSES } from "@/lib/order-utils";
 import { broadcastOrderEvent } from "@/lib/events";
@@ -28,7 +28,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   broadcastOrderEvent({ type: "order_updated", orderId: order.id, status: order.status });
-  sendStatusUpdateEmail(order).catch((e: unknown) => console.error("[mailer] status email failed", e));
+
+  // See app/api/orders/route.ts for why this is wrapped in after() rather
+  // than a bare fire-and-forget .catch() — same Vercel timing issue applies here.
+  after(async () => {
+    await sendStatusUpdateEmail(order).catch((e: unknown) => console.error("[mailer] status email failed", e));
+  });
 
   return NextResponse.json(order);
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { getCustomerSession } from "@/lib/customer-auth";
@@ -281,25 +281,40 @@ export async function POST(req: NextRequest) {
 
     broadcastOrderEvent({ type: "new_order", orderId: fullOrder.id, orderNumber: fullOrder.orderNumber });
 
-    sendCustomerConfirmationEmail(fullOrder).catch((e: unknown) => console.error("[mailer] customer email failed", e));
-    sendStoreNotificationEmail(fullOrder).catch((e: unknown) => console.error("[mailer] store email failed", e));
-
+    // Everything below is fire-and-forget (emails, low-stock check) and must
+    // not delay the response to the customer. On Vercel, an un-awaited
+    // promise can get cut off the instant the response is sent — after()
+    // (Next.js 15+) schedules this to run once the response goes out, but
+    // keeps the function alive until it actually finishes, so the emails
+    // reliably send instead of silently vanishing.
     const variantIdsToCheck = orderItemsData.map((it) => it.variantId);
-    const updatedVariants = await prisma.$queryRaw<
-      { id: string; stock: number; label: string; product_name: string }[]
-    >`
-      select v.id, v.stock_quantity as stock, v.size_label as label, p.name as product_name
-      from product_variants v
-      join products p on p.id = v.product_id
-      where v.id = ANY(${variantIdsToCheck}::uuid[]) and v.stock_quantity <= ${LOW_STOCK_THRESHOLD}
-    `;
 
-    if (updatedVariants.length > 0) {
-      broadcastOrderEvent({ type: "low_stock", orderId: fullOrder.id, orderNumber: fullOrder.orderNumber });
-      sendLowStockAlert(
-        updatedVariants.map((s) => ({ productName: s.product_name, sizeLabel: s.label, stock: s.stock }))
-      ).catch((e: unknown) => console.error("[mailer] low stock email failed", e));
-    }
+    after(async () => {
+      await Promise.all([
+        sendCustomerConfirmationEmail(fullOrder).catch((e: unknown) =>
+          console.error("[mailer] customer email failed", e)
+        ),
+        sendStoreNotificationEmail(fullOrder).catch((e: unknown) =>
+          console.error("[mailer] store email failed", e)
+        ),
+      ]);
+
+      const updatedVariants = await prisma.$queryRaw<
+        { id: string; stock: number; label: string; product_name: string }[]
+      >`
+        select v.id, v.stock_quantity as stock, v.size_label as label, p.name as product_name
+        from product_variants v
+        join products p on p.id = v.product_id
+        where v.id = ANY(${variantIdsToCheck}::uuid[]) and v.stock_quantity <= ${LOW_STOCK_THRESHOLD}
+      `;
+
+      if (updatedVariants.length > 0) {
+        broadcastOrderEvent({ type: "low_stock", orderId: fullOrder.id, orderNumber: fullOrder.orderNumber });
+        await sendLowStockAlert(
+          updatedVariants.map((s) => ({ productName: s.product_name, sizeLabel: s.label, stock: s.stock }))
+        ).catch((e: unknown) => console.error("[mailer] low stock email failed", e));
+      }
+    });
 
     return NextResponse.json(fullOrder, { status: 201 });
   } catch (err) {
