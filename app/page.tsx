@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Check,
@@ -926,6 +927,7 @@ function CheckoutModal({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [needsLogin, setNeedsLogin] = useState(false);
   const [success, setSuccess] = useState<{ orderNumber: string; total: number } | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<{ id: string; label: string; address: string; isDefault: boolean }[]>([]);
 
@@ -947,6 +949,7 @@ function CheckoutModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNeedsLogin(false);
     if (fulfillment === "DELIVERY" && !address.trim()) {
       setError(t("Bitte geben Sie Ihre Lieferadresse an.", "Please enter a delivery address."));
       return;
@@ -968,6 +971,7 @@ function CheckoutModal({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) setNeedsLogin(true);
         setError(data.error || t("Bestellung fehlgeschlagen. Bitte versuchen Sie es erneut.", "Could not place order. Please try again."));
         setSubmitting(false);
         return;
@@ -1050,7 +1054,21 @@ function CheckoutModal({
           <textarea placeholder={t("Hinweise zur Bestellung (optional)", "Order notes (optional)")} value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </div>
 
-        {error && <div className="checkout-error">{error}</div>}
+        {error && (
+          <div className="checkout-error">
+            {error}
+            {needsLogin && (
+              <>
+                {" "}
+                <Link href="/account" className="text-btn" style={{ display: "inline-flex", padding: 0 }}>
+                  {t("Jetzt anmelden", "Log in now")}
+                </Link>
+                {" — "}
+                {t("Ihr Warenkorb bleibt dabei erhalten.", "your basket will still be here.")}
+              </>
+            )}
+          </div>
+        )}
 
         <div className="checkout-box" style={{ flexDirection: "column", gap: 6, alignItems: "stretch" }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
