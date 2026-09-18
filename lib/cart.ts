@@ -1,10 +1,14 @@
 // lib/cart.ts
 //
-// Shared cart logic for the new schema (carts/cart_items/product_variants).
-// Uses raw SQL for the same reason as lib/pricing.ts — these are brand-new
-// tables and the generated Prisma model names haven't been confirmed yet.
+// Cart identity is either a logged-in user OR an anonymous guest token
+// (a long random string in a cookie, set by app/api/cart/route.ts on first
+// use). This lets someone add to cart before logging in — same as Amazon —
+// and mergeGuestCartIntoUser() below folds that guest cart into their
+// account cart the moment they log in or register.
 
 import { prisma } from "./prisma";
+
+export type CartIdentity = { userId: string } | { guestToken: string };
 
 export type CartItem = {
   id: string;
@@ -26,20 +30,32 @@ export type Cart = {
   subtotal: number;
 };
 
-export async function getOrCreateCartId(userId: string): Promise<string> {
+export async function getOrCreateCartId(identity: CartIdentity): Promise<string> {
+  if ("userId" in identity) {
+    const existing = await prisma.$queryRaw<{ id: string }[]>`
+      select id from carts where user_id = ${identity.userId}::uuid limit 1
+    `;
+    if (existing[0]) return existing[0].id;
+
+    const created = await prisma.$queryRaw<{ id: string }[]>`
+      insert into carts (user_id) values (${identity.userId}::uuid) returning id
+    `;
+    return created[0].id;
+  }
+
   const existing = await prisma.$queryRaw<{ id: string }[]>`
-    select id from carts where user_id = ${userId} limit 1
+    select id from carts where guest_token = ${identity.guestToken} limit 1
   `;
   if (existing[0]) return existing[0].id;
 
   const created = await prisma.$queryRaw<{ id: string }[]>`
-    insert into carts (user_id) values (${userId}::uuid) returning id
+    insert into carts (guest_token) values (${identity.guestToken}) returning id
   `;
   return created[0].id;
 }
 
-export async function getCart(userId: string): Promise<Cart> {
-  const cartId = await getOrCreateCartId(userId);
+export async function getCart(identity: CartIdentity): Promise<Cart> {
+  const cartId = await getOrCreateCartId(identity);
 
   const rows = await prisma.$queryRaw<(Omit<CartItem, "price"> & { price: string })[]>`
     select
@@ -59,13 +75,17 @@ export async function getCart(userId: string): Promise<Cart> {
   return { cartId, items, subtotal };
 }
 
-export async function addToCart(userId: string, variantId: string, quantity: number): Promise<Cart> {
+export async function addToCart(
+  identity: CartIdentity,
+  variantId: string,
+  quantity: number
+): Promise<Cart> {
   const variant = await prisma.$queryRaw<{ stock_quantity: number }[]>`
     select stock_quantity from product_variants where id = ${variantId}::uuid and is_active = true
   `;
   if (!variant[0]) throw new Error("VARIANT_NOT_FOUND");
 
-  const cartId = await getOrCreateCartId(userId);
+  const cartId = await getOrCreateCartId(identity);
 
   const existingItem = await prisma.$queryRaw<{ id: string; quantity: number }[]>`
     select id, quantity from cart_items where cart_id = ${cartId}::uuid and variant_id = ${variantId}::uuid
@@ -83,19 +103,19 @@ export async function addToCart(userId: string, variantId: string, quantity: num
     `;
   }
 
-  return getCart(userId);
+  return getCart(identity);
 }
 
 export async function updateCartItemQuantity(
-  userId: string,
+  identity: CartIdentity,
   itemId: string,
   quantity: number
 ): Promise<Cart> {
-  const cartId = await getOrCreateCartId(userId);
+  const cartId = await getOrCreateCartId(identity);
 
   if (quantity <= 0) {
     await prisma.$executeRaw`delete from cart_items where id = ${itemId}::uuid and cart_id = ${cartId}::uuid`;
-    return getCart(userId);
+    return getCart(identity);
   }
 
   const variant = await prisma.$queryRaw<{ stock_quantity: number }[]>`
@@ -109,11 +129,54 @@ export async function updateCartItemQuantity(
   await prisma.$executeRaw`
     update cart_items set quantity = ${quantity} where id = ${itemId}::uuid and cart_id = ${cartId}::uuid
   `;
-  return getCart(userId);
+  return getCart(identity);
 }
 
-export async function removeCartItem(userId: string, itemId: string): Promise<Cart> {
-  const cartId = await getOrCreateCartId(userId);
+export async function removeCartItem(identity: CartIdentity, itemId: string): Promise<Cart> {
+  const cartId = await getOrCreateCartId(identity);
   await prisma.$executeRaw`delete from cart_items where id = ${itemId}::uuid and cart_id = ${cartId}::uuid`;
-  return getCart(userId);
+  return getCart(identity);
+}
+
+export async function clearCart(identity: CartIdentity): Promise<void> {
+  const cartId = await getOrCreateCartId(identity);
+  await prisma.$executeRaw`delete from cart_items where cart_id = ${cartId}::uuid`;
+}
+
+/**
+ * Called on login/register: folds a guest cart's items into the user's
+ * cart (merging quantities where both have the same variant), then
+ * deletes the now-empty guest cart. Safe to call even if the guest never
+ * had a cart at all.
+ */
+export async function mergeGuestCartIntoUser(guestToken: string, userId: string): Promise<void> {
+  const guestCart = await prisma.$queryRaw<{ id: string }[]>`
+    select id from carts where guest_token = ${guestToken} limit 1
+  `;
+  if (!guestCart[0]) return;
+
+  const guestCartId = guestCart[0].id;
+  const userCartId = await getOrCreateCartId({ userId });
+
+  const guestItems = await prisma.$queryRaw<{ variant_id: string; quantity: number }[]>`
+    select variant_id, quantity from cart_items where cart_id = ${guestCartId}::uuid
+  `;
+
+  for (const item of guestItems) {
+    const existing = await prisma.$queryRaw<{ id: string; quantity: number }[]>`
+      select id, quantity from cart_items where cart_id = ${userCartId}::uuid and variant_id = ${item.variant_id}::uuid
+    `;
+    if (existing[0]) {
+      await prisma.$executeRaw`
+        update cart_items set quantity = ${existing[0].quantity + item.quantity} where id = ${existing[0].id}::uuid
+      `;
+    } else {
+      await prisma.$executeRaw`
+        insert into cart_items (cart_id, variant_id, quantity)
+        values (${userCartId}::uuid, ${item.variant_id}::uuid, ${item.quantity})
+      `;
+    }
+  }
+
+  await prisma.$executeRaw`delete from carts where id = ${guestCartId}::uuid`;
 }

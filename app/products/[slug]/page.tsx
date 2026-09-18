@@ -1,6 +1,9 @@
 // app/products/[slug]/page.tsx
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { StarRating } from "@/app/components/StarRating";
 import { VariantSelector, type Variant } from "@/app/components/VariantSelector";
 
 type ProductRow = {
@@ -17,10 +20,12 @@ type VariantRow = {
   id: string;
   sku: string;
   size_label: string;
-  price: string; // numeric -> string over the wire
+  price: string;
   compare_at_price: string | null;
   stock_quantity: number;
 };
+
+type ReviewStatsRow = { average: string | null; count: string };
 
 async function getProduct(slug: string): Promise<ProductRow | null> {
   const rows = await prisma.$queryRaw<ProductRow[]>`
@@ -49,41 +54,52 @@ async function getVariants(productId: string): Promise<Variant[]> {
   }));
 }
 
+async function getReviewStats(productId: string) {
+  const rows = await prisma.$queryRaw<ReviewStatsRow[]>`
+    select avg(rating) as average, count(*) as count from reviews where product_id = ${productId}::uuid
+  `;
+  return { average: Number(rows[0]?.average ?? 0), count: Number(rows[0]?.count ?? 0) };
+}
+
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const product = await getProduct(slug);
   if (!product) notFound();
 
-  const variants = await getVariants(product.id);
+  const [variants, reviewStats] = await Promise.all([getVariants(product.id), getReviewStats(product.id)]);
   if (variants.length === 0) notFound();
 
   return (
-    <main className="mx-auto max-w-5xl px-5 py-10">
-      {product.category_name && (
-        <p className="text-sm text-[var(--muted)]">{product.category_name}</p>
-      )}
+    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] flex flex-col items-center py-12 px-4 md:px-8">
+      <div className="w-full max-w-xl bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
+        <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
+          <ArrowLeft size={16} /> Back to shop
+        </Link>
 
-      <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <div className="aspect-square overflow-hidden rounded-2xl bg-[var(--cream)]">
-          {product.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={product.image_url}
-              alt={product.name}
-              className="h-full w-full object-cover"
-            />
-          ) : null}
+        {product.image_url && (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            style={{ width: "100%", borderRadius: 14, marginBottom: 16, maxHeight: 280, objectFit: "cover" }}
+          />
+        )}
+
+        {product.category_name && <span className="eyebrow">{product.category_name}</span>}
+        <h1 style={{ fontSize: 30, margin: "8px 0 0" }}>{product.name}</h1>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 0 14px" }}>
+          <StarRating value={reviewStats.average} size={16} />
+          <span style={{ fontSize: 14, color: "rgba(24,32,27,.65)" }}>
+            {reviewStats.count > 0
+              ? `${reviewStats.average.toFixed(1)} · ${reviewStats.count} ${reviewStats.count === 1 ? "review" : "reviews"}`
+              : "No reviews yet"}
+          </span>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <h1 className="font-serif text-4xl leading-tight text-[var(--ink)]">{product.name}</h1>
-          {product.unit_note && <p className="text-[var(--muted)]">{product.unit_note}</p>}
-          {product.description && (
-            <p className="leading-relaxed text-[var(--ink)]/80">{product.description}</p>
-          )}
+        {product.unit_note && <p style={{ color: "#6d766f", fontSize: 13, marginBottom: 6 }}>{product.unit_note}</p>}
+        {product.description && <p style={{ marginBottom: 4 }}>{product.description}</p>}
 
-          <VariantSelector variants={variants} />
-        </div>
+        <VariantSelector variants={variants} />
       </div>
     </main>
   );

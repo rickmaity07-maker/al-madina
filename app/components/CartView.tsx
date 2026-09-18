@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { Cart } from "@/lib/cart";
 
@@ -19,107 +20,77 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
     if (res.ok) setCart(await res.json());
   }
 
-  async function removeItem(itemId: string) {
-    const res = await fetch("/api/cart", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId }),
-    });
-    if (res.ok) setCart(await res.json());
-  }
-
   const belowMinimum = cart.subtotal < cartMinimum;
 
   if (cart.items.length === 0) {
     return (
-      <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-[var(--line)] py-16 text-center">
-        <p className="text-[var(--muted)]">Your cart is empty.</p>
-        <Link href="/" className="btn-primary">
-          Browse products
+      <div className="empty-cart" style={{ minHeight: 320 }}>
+        <ShoppingBag size={42} />
+        <h3>Your basket is waiting.</h3>
+        <p>Add a few favourites — they'll show up here.</p>
+        <Link href="/" className="primary-btn">
+          Continue shopping
         </Link>
       </div>
     );
   }
 
   return (
-    <div className={`mt-8 flex flex-col gap-6 ${isPending ? "opacity-60 transition-opacity" : ""}`}>
-      <ul className="flex flex-col divide-y divide-[var(--line)]">
+    <div style={{ opacity: isPending ? 0.6 : 1, transition: "opacity .2s" }}>
+      <div className="cart-items" style={{ overflow: "visible" }}>
         {cart.items.map((item) => (
-          <li key={item.id} className="flex items-center gap-4 py-4">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--cream)]">
-              {item.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.image_url}
-                  alt={item.product_name}
-                  className="h-full w-full object-cover"
-                />
-              )}
-            </div>
-
-            <div className="flex-1">
-              <Link href={`/products/${item.product_slug}`} className="font-medium text-[var(--ink)]">
-                {item.product_name}
+          <div className="cart-item" key={item.id}>
+            {item.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.image_url} alt={item.product_name} />
+            ) : (
+              <div style={{ width: 75, height: 75, borderRadius: 12, background: "#eee" }} />
+            )}
+            <div>
+              <Link href={`/products/${item.product_slug}`}>
+                <b>{item.product_name}</b>
               </Link>
-              <p className="text-sm text-[var(--muted)]">{item.size_label}</p>
+              <span>
+                {item.size_label} · {formatCurrency(item.price)}
+              </span>
+              <div className="qty">
+                <button onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}>
+                  <Minus size={13} />
+                </button>
+                <span>{item.quantity}</span>
+                <button
+                  onClick={() => startTransition(() => updateQuantity(item.id, item.quantity + 1))}
+                  disabled={item.quantity >= item.stock_quantity}
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
             </div>
-
-            <div className="flex items-center rounded-full border border-[var(--line)]">
-              <button
-                type="button"
-                onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}
-                className="px-3 py-1 text-lg"
-                aria-label="Decrease quantity"
-              >
-                –
-              </button>
-              <span className="min-w-[2ch] text-center text-sm">{item.quantity}</span>
-              <button
-                type="button"
-                onClick={() => startTransition(() => updateQuantity(item.id, item.quantity + 1))}
-                disabled={item.quantity >= item.stock_quantity}
-                className="px-3 py-1 text-lg disabled:opacity-30"
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
-
-            <span className="w-20 text-right font-semibold text-[var(--ink)]">
-              {formatCurrency(item.price * item.quantity)}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => startTransition(() => removeItem(item.id))}
-              className="text-sm text-[var(--muted)] hover:text-[#b3261e]"
-            >
-              Remove
-            </button>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
-      <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-5">
-        <div className="flex items-center justify-between text-lg">
-          <span className="text-[var(--ink)]">Subtotal</span>
-          <span className="font-semibold text-[var(--green)]">{formatCurrency(cart.subtotal)}</span>
+      <div className="cart-summary">
+        <div>
+          <span>Subtotal</span>
+          <b>{formatCurrency(cart.subtotal)}</b>
         </div>
-
-        {belowMinimum && (
-          <p className="text-sm text-[#b3261e]">
-            Add {formatCurrency(cartMinimum - cart.subtotal)} more to reach the{" "}
-            {formatCurrency(cartMinimum)} order minimum.
-          </p>
+        {belowMinimum ? (
+          <small style={{ textAlign: "left", color: "#b3261e" }}>
+            Add {formatCurrency(cartMinimum - cart.subtotal)} more to reach the {formatCurrency(cartMinimum)} order
+            minimum.
+          </small>
+        ) : (
+          <small style={{ textAlign: "left" }}>Delivery fee / pickup option is chosen at checkout.</small>
         )}
-
         <Link
-          href="/checkout"
-          aria-disabled={belowMinimum}
-          className={`btn-primary justify-center ${belowMinimum ? "pointer-events-none opacity-50" : ""}`}
+          href="/?checkout=1"
+          className="primary-btn full"
+          style={belowMinimum ? { pointerEvents: "none", opacity: 0.5 } : undefined}
         >
-          Proceed to checkout
+          Go to checkout
         </Link>
+        <small>Cash payment on delivery or pickup</small>
       </div>
     </div>
   );

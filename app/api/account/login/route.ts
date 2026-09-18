@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signCustomerToken, CUSTOMER_COOKIE_NAME } from "@/lib/customer-auth";
+import { mergeGuestCartIntoUser } from "@/lib/cart";
+
+const GUEST_CART_COOKIE_NAME = "almadina_guest_cart";
 
 type UserRow = {
   id: string;
@@ -41,6 +44,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
+  // Fold whatever they'd added to cart before logging in into their account cart.
+  const guestToken = req.cookies.get(GUEST_CART_COOKIE_NAME)?.value;
+  if (guestToken) {
+    await mergeGuestCartIntoUser(guestToken, user.id).catch((e: unknown) =>
+      console.error("[cart] guest merge failed on login", e)
+    );
+  }
+
   const token = signCustomerToken({ userId: user.id, email: user.email });
   const res = NextResponse.json({
     id: user.id,
@@ -56,5 +67,6 @@ export async function POST(req: NextRequest) {
     path: "/",
     maxAge: 60 * 60 * 24 * 60,
   });
+  if (guestToken) res.cookies.delete(GUEST_CART_COOKIE_NAME);
   return res;
 }

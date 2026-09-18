@@ -1,20 +1,46 @@
 // app/cart/page.tsx
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { cookies } from "next/headers";
 import { getCustomerSession } from "@/lib/customer-auth";
-import { getCart } from "@/lib/cart";
+import { getCart, type CartIdentity } from "@/lib/cart";
 import { getCartMinimum } from "@/lib/pricing";
 import { CartView } from "@/app/components/CartView";
 
+const GUEST_COOKIE_NAME = "almadina_guest_cart";
+
 export default async function CartPage() {
   const session = await getCustomerSession();
-  if (!session) redirect("/account"); // login/register lives on the account page
+  const store = await cookies();
+  const guestToken = store.get(GUEST_COOKIE_NAME)?.value;
 
-  const [cart, cartMinimum] = await Promise.all([getCart(session.userId), getCartMinimum()]);
+  // Same identity resolution as /api/cart: logged-in customer, or their
+  // existing guest token. If neither exists yet, there's nothing to show —
+  // the empty state below covers that (no cookie gets minted just from
+  // viewing this page; that only happens on an actual add-to-cart).
+  const identity: CartIdentity | null = session?.userId
+    ? { userId: session.userId }
+    : guestToken
+      ? { guestToken }
+      : null;
+
+  const [cart, cartMinimum] = await Promise.all([
+    identity ? getCart(identity) : Promise.resolve({ cartId: "", items: [], subtotal: 0 }),
+    getCartMinimum(),
+  ]);
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10">
-      <h1 className="font-serif text-4xl text-[var(--ink)]">Your cart</h1>
-      <CartView initialCart={cart} cartMinimum={cartMinimum} />
+    <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] flex flex-col items-center py-12 px-4 md:px-8">
+      <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
+        <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
+          <ArrowLeft size={16} /> Back to shop
+        </Link>
+
+        <span className="eyebrow">Your basket</span>
+        <h1 style={{ fontSize: 30, margin: "8px 0 24px" }}>Your cart</h1>
+
+        <CartView initialCart={cart} cartMinimum={cartMinimum} />
+      </div>
     </main>
   );
 }

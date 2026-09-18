@@ -47,7 +47,7 @@ type SortOption = "relevance" | "price-asc" | "price-desc" | "rating";
 type Account = { id: string; name: string; email: string; phone: string | null };
 
 type CartItem = {
-  key: string; // `${productId}:${sizeId}`
+  key: string; // the server-side cart_item id
   productId: string;
   sizeId: string;
   name: string;
@@ -55,7 +55,34 @@ type CartItem = {
   price: number;
   image: string;
   qty: number;
+  stock: number;
 };
+
+type ServerCartItem = {
+  id: string;
+  variant_id: string;
+  quantity: number;
+  size_label: string;
+  price: number;
+  stock_quantity: number;
+  product_id: string;
+  product_name: string;
+  image_url: string | null;
+};
+
+function mapServerCart(items: ServerCartItem[]): CartItem[] {
+  return items.map((it) => ({
+    key: it.id,
+    productId: it.product_id,
+    sizeId: it.variant_id,
+    name: it.product_name,
+    sizeLabel: it.size_label,
+    price: it.price,
+    image: it.image_url ?? "",
+    qty: it.quantity,
+    stock: it.stock_quantity,
+  }));
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -95,6 +122,22 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => setAccount(data.user))
       .catch(() => setAccount(null));
+  }, []);
+
+  // Load the cart (guest or account, whichever this browser already has) once on mount.
+  useEffect(() => {
+    fetch("/api/cart")
+      .then((res) => res.json())
+      .then((data) => setCart(mapServerCart(data.items)))
+      .catch(() => {});
+  }, []);
+
+  // Coming from the /cart page's "Go to checkout" link.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("checkout") === "1") {
+      setCheckoutOpen(true);
+      window.history.replaceState({}, "", "/");
+    }
   }, []);
 
   useEffect(() => {
@@ -156,20 +199,42 @@ export default function Home() {
   }
 
   function addToCart(product: Product, size: ProductSize, qty: number = 1, silent: boolean = false) {
-    const key = `${product.id}:${size.id}`;
-    setCart((current) => {
-      const existing = current.find((item) => item.key === key);
-      if (existing) return current.map((item) => (item.key === key ? { ...item, qty: item.qty + qty } : item));
-      return [
-        ...current,
-        { key, productId: product.id, sizeId: size.id, name: product.name, sizeLabel: size.label, price: size.price, image: product.image, qty },
-      ];
-    });
-    if (!silent) showToast(t(`${product.name} (${size.label}) wurde hinzugefügt`, `${product.name} (${size.label}) added to your basket`));
+    fetch("/api/cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ variantId: size.id, quantity: qty }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showToast(data.error || t("Konnte nicht hinzugefügt werden", "Couldn't add that to your basket"));
+          return;
+        }
+        setCart(mapServerCart(data.items));
+        if (!silent) showToast(t(`${product.name} (${size.label}) wurde hinzugefügt`, `${product.name} (${size.label}) added to your basket`));
+      })
+      .catch(() => showToast(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again.")));
   }
 
   function changeQty(key: string, delta: number) {
-    setCart((current) => current.map((item) => (item.key === key ? { ...item, qty: item.qty + delta } : item)).filter((item) => item.qty > 0));
+    const current = cart.find((item) => item.key === key);
+    if (!current) return;
+    const nextQty = current.qty + delta;
+
+    fetch("/api/cart", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: key, quantity: nextQty }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showToast(data.error || t("Konnte nicht aktualisiert werden", "Couldn't update that item"));
+          return;
+        }
+        setCart(mapServerCart(data.items));
+      })
+      .catch(() => showToast(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again.")));
   }
 
   function toggleLike(id: string) {
@@ -243,6 +308,7 @@ export default function Home() {
   }, [products]);
 
   function clearCartAfterOrder() {
+    fetch("/api/cart", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
     setCart([]);
     setCheckoutOpen(false);
     setCartOpen(false);

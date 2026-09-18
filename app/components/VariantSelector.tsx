@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 
 export type Variant = {
@@ -15,17 +16,10 @@ export type Variant = {
 
 export function VariantSelector({ variants }: { variants: Variant[] }) {
   const [selectedId, setSelectedId] = useState(variants[0]?.id);
-  const [quantity, setQuantity] = useState(1);
   const [status, setStatus] = useState<"idle" | "adding" | "added" | "error">("idle");
 
   const selected = variants.find((v) => v.id === selectedId) ?? variants[0];
   const outOfStock = selected.stock_quantity <= 0;
-
-  function selectVariant(id: string) {
-    setSelectedId(id);
-    setQuantity(1);
-    setStatus("idle");
-  }
 
   async function handleAddToCart() {
     setStatus("adding");
@@ -33,7 +27,7 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
       const res = await fetch("/api/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ variantId: selected.id, quantity }),
+        body: JSON.stringify({ variantId: selected.id, quantity: 1 }),
       });
       if (!res.ok) throw new Error("request failed");
       setStatus("added");
@@ -44,87 +38,47 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap gap-2">
-        {variants.map((v) => {
-          const isSelected = v.id === selectedId;
-          const isOut = v.stock_quantity <= 0;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              disabled={isOut}
-              onClick={() => selectVariant(v.id)}
-              className={[
-                "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                isSelected
-                  ? "border-[var(--green)] bg-[var(--green)] text-white"
-                  : "border-[var(--line)] bg-white text-[var(--ink)] hover:border-[var(--green)]",
-                isOut ? "cursor-not-allowed opacity-40" : "",
-              ].join(" ")}
-            >
-              {v.size_label}
-              {isOut ? " (out of stock)" : ""}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-[var(--green)]">
-          {formatCurrency(selected.price)}
-        </span>
-        {selected.compare_at_price && (
-          <span className="text-sm text-[var(--muted)] line-through">
-            {formatCurrency(selected.compare_at_price)}
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center rounded-full border border-[var(--line)]">
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            className="px-3 py-2 text-lg text-[var(--ink)]"
-            aria-label="Decrease quantity"
-          >
-            –
-          </button>
-          <span className="min-w-[2ch] text-center text-sm">{quantity}</span>
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.min(selected.stock_quantity, q + 1))}
-            className="px-3 py-2 text-lg text-[var(--ink)]"
-            aria-label="Increase quantity"
-          >
-            +
-          </button>
+    <>
+      {variants.length > 1 && (
+        <div className="size-row" style={{ margin: "10px 0" }}>
+          {variants.map((v) => {
+            const isOut = v.stock_quantity <= 0;
+            return (
+              <button
+                key={v.id}
+                disabled={isOut}
+                className={v.id === selected.id ? "size-pill active" : "size-pill"}
+                onClick={() => setSelectedId(v.id)}
+                style={isOut ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+              >
+                {v.size_label}
+              </button>
+            );
+          })}
         </div>
+      )}
 
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={outOfStock || status === "adding"}
-          className="btn-primary flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {outOfStock
-            ? "Out of stock"
-            : status === "added"
-              ? "Added"
-              : status === "adding"
-                ? "Adding…"
-                : "Add to cart"}
+      <div className="checkout-box" style={{ marginBottom: 20 }}>
+        <div>
+          <b>{formatCurrency(selected.price)}</b>
+          {selected.compare_at_price && (
+            <del style={{ marginLeft: 8, color: "#a2a6a3", fontSize: 12 }}>{formatCurrency(selected.compare_at_price)}</del>
+          )}
+        </div>
+        <button className="primary-btn" onClick={handleAddToCart} disabled={outOfStock || status === "adding"}>
+          <Plus size={17} />
+          {outOfStock ? "Out of stock" : status === "added" ? "Added" : status === "adding" ? "Adding…" : "Add to basket"}
         </button>
       </div>
 
       {status === "error" && (
-        <p className="text-sm text-[#b3261e]">Couldn't add that to your cart — try again.</p>
+        <p style={{ color: "#b3261e", fontSize: 13, marginTop: -10, marginBottom: 16 }}>
+          Couldn't add that to your cart — try again.
+        </p>
       )}
-
       {selected.stock_quantity > 0 && selected.stock_quantity <= 5 && (
-        <p className="text-sm text-[var(--lime)]">Only {selected.stock_quantity} left</p>
+        <p style={{ color: "#c79a3a", fontSize: 13, fontWeight: 700, marginTop: -10 }}>Only {selected.stock_quantity} left</p>
       )}
-    </div>
+    </>
   );
 }
