@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession, isOwner } from "@/lib/auth";
+import { getAdminProductView, replaceVariants, resolveCategoryId } from "@/lib/catalog-admin";
+import { slugify } from "@/lib/slug";
 
 // Admin only: update a product and fully replace its size list
 // (simplest, most predictable way to keep sizes in sync with the admin form).
@@ -12,41 +14,33 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json();
   const { name, category, description, image, badge, unitNote, active, sizes } = body;
 
-  const existing = await prisma.product.findUnique({ where: { id } });
-  if (!existing) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  const existing = await prisma.$queryRaw<{ id: string; slug: string }[]>`
+    select id, slug from products where id = ${id}::uuid
+  `;
+  if (!existing[0]) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-  const product = await prisma.$transaction(async (tx) => {
+  const categoryId = await resolveCategoryId(category);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      update products set
+        category_id = ${categoryId}::uuid,
+        name = ${name},
+        description = ${description || null},
+        image_url = ${image},
+        badge = ${badge || null},
+        unit_note = ${unitNote || null},
+        is_active = ${active ?? true},
+        updated_at = now()
+      where id = ${id}::uuid
+    `;
+
     if (Array.isArray(sizes)) {
-      await tx.productSize.deleteMany({ where: { productId: id } });
+      await replaceVariants(tx, id, existing[0].slug || slugify(name), sizes);
     }
-    return tx.product.update({
-      where: { id },
-      data: {
-        name,
-        category,
-        description: description ?? null,
-        image,
-        badge: badge ?? null,
-        unitNote: unitNote ?? null,
-        active: active ?? true,
-        ...(Array.isArray(sizes)
-          ? {
-              sizes: {
-                create: sizes.map((s: { label: string; price: number; oldPrice?: number; stock?: number }, i: number) => ({
-                  label: s.label,
-                  price: Number(s.price),
-                  oldPrice: s.oldPrice ? Number(s.oldPrice) : null,
-                  stock: s.stock ?? 999,
-                  sortOrder: i,
-                })),
-              },
-            }
-          : {}),
-      },
-      include: { sizes: true },
-    });
   });
 
+  const product = await getAdminProductView(id);
   return NextResponse.json(product);
 }
 
@@ -56,6 +50,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
   const { id } = await params;
-  await prisma.product.delete({ where: { id } }).catch(() => null);
+  await prisma.$executeRaw`delete from products where id = ${id}::uuid`.catch(() => null);
   return NextResponse.json({ ok: true });
 }

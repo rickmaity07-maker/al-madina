@@ -3,14 +3,21 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession, isOwner } from "@/lib/auth";
 
+// admin_users is a role marker (user_id, role) on top of users — the actual
+// account (email, password, name) lives in users, shared with the customer
+// login. See lib/auth.ts's getAdminSession() for the same join.
+type TeamAccount = { id: string; email: string; name: string; role: "OWNER" | "STAFF"; createdAt: Date };
+
 export async function GET() {
   const session = await getAdminSession();
   if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
 
-  const accounts = await prisma.adminUser.findMany({
-    select: { id: true, email: true, name: true, role: true, createdAt: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const accounts = await prisma.$queryRaw<TeamAccount[]>`
+    select u.id, u.email, u.full_name as "name", a.role, a.created_at as "createdAt"
+    from admin_users a
+    join users u on u.id = a.user_id
+    order by a.created_at asc
+  `;
   return NextResponse.json(accounts);
 }
 
@@ -30,13 +37,36 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const existing = await prisma.adminUser.findUnique({ where: { email: normalizedEmail } });
-  if (existing) return NextResponse.json({ error: "An admin account with this email already exists." }, { status: 409 });
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const created = await prisma.adminUser.create({
-    data: { name: name.trim(), email: normalizedEmail, passwordHash, role },
-    select: { id: true, email: true, name: true, role: true, createdAt: true },
+  const existingAdmin = await prisma.$queryRaw<{ user_id: string }[]>`
+    select a.user_id from admin_users a join users u on u.id = a.user_id where u.email = ${normalizedEmail} limit 1
+  `;
+  if (existingAdmin[0]) {
+    return NextResponse.json({ error: "An admin account with this email already exists." }, { status: 409 });
+  }
+
+  // If they already have a customer account, grant admin on it (shared login) —
+  // otherwise create a fresh account with the given password.
+  const existingUser = await prisma.$queryRaw<{ id: string }[]>`
+    select id from users where email = ${normalizedEmail} and deleted_at is null limit 1
+  `;
+
+  const userId = await prisma.$transaction(async (tx) => {
+    if (existingUser[0]) return existingUser[0].id;
+    const passwordHash = await bcrypt.hash(password, 10);
+    const created = await tx.$queryRaw<{ id: string }[]>`
+      insert into users (email, password_hash, full_name) values (${normalizedEmail}, ${passwordHash}, ${name.trim()})
+      returning id
+    `;
+    return created[0].id;
   });
-  return NextResponse.json(created, { status: 201 });
+  await prisma.$executeRaw`insert into admin_users (user_id, role) values (${userId}::uuid, ${role}::admin_role)`;
+
+  const created = await prisma.$queryRaw<TeamAccount[]>`
+    select u.id, u.email, u.full_name as "name", a.role, a.created_at as "createdAt"
+    from admin_users a
+    join users u on u.id = a.user_id
+    where a.user_id = ${userId}::uuid
+  `;
+  return NextResponse.json(created[0], { status: 201 });
 }

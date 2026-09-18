@@ -1,7 +1,22 @@
 import nodemailer from "nodemailer";
-import type { Order, OrderItem } from "@prisma/client";
 
-type OrderWithItems = Order & { items: OrderItem[] };
+// A structural subset of lib/orders.ts's FullOrder — only the fields these
+// templates actually use, so callers don't need to supply statusEvents etc.
+type OrderItem = { name: string; sizeLabel: string | null; price: number; qty: number };
+type OrderWithItems = {
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  fulfillment: string;
+  address: string | null;
+  notes: string | null;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  status: string;
+  items: OrderItem[];
+};
 
 // ---------------------------------------------------------------------------
 // SMTP transport. Reads its settings from environment variables — see
@@ -30,6 +45,27 @@ function money(n: number) {
   return `€${n.toFixed(2)}`;
 }
 
+// These templates interpolate customer-supplied text (name, address, notes,
+// item names) straight into HTML emails. Without escaping, a malicious order
+// (e.g. name = "<img src=x onerror=...>" or a note containing a fake link)
+// would inject arbitrary markup into the store owner's / customer's inbox.
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
+}
+
 function itemsTable(items: OrderItem[]) {
   return `
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
@@ -46,8 +82,8 @@ function itemsTable(items: OrderItem[]) {
           .map(
             (it) => `
           <tr style="border-bottom:1px solid #eee">
-            <td style="padding:6px 4px">${it.name}</td>
-            <td style="padding:6px 4px">${it.sizeLabel ?? "-"}</td>
+            <td style="padding:6px 4px">${escapeHtml(it.name)}</td>
+            <td style="padding:6px 4px">${escapeHtml(it.sizeLabel ?? "-")}</td>
             <td style="padding:6px 4px;text-align:center">${it.qty}</td>
             <td style="padding:6px 4px;text-align:right">${money(it.price * it.qty)}</td>
           </tr>`
@@ -79,16 +115,16 @@ function baseWrapper(title: string, bodyHtml: string) {
 function fulfillmentLine(order: OrderWithItems) {
   return order.fulfillment === "PICKUP"
     ? `<p><b>Pickup in store</b> — it will be packed and ready for you to collect from Al-Madina Markt.</p>`
-    : `<p><b>Home delivery</b> to: ${order.address ?? ""}</p>`;
+    : `<p><b>Home delivery</b> to: ${escapeHtml(order.address ?? "")}</p>`;
 }
 
 /** Email sent to the customer confirming their order. */
 export async function sendCustomerConfirmationEmail(order: OrderWithItems) {
   const transport = getTransport();
   const html = baseWrapper(
-    `Thank you, ${order.customerName}!`,
+    `Thank you, ${escapeHtml(order.customerName)}!`,
     `
-    <p>We've received your order <b>#${order.orderNumber}</b>.</p>
+    <p>We've received your order <b>#${escapeHtml(order.orderNumber)}</b>.</p>
     ${fulfillmentLine(order)}
     ${itemsTable(order.items)}
     <table style="width:100%;font-size:14px">
@@ -130,11 +166,11 @@ export async function sendStoreNotificationEmail(order: OrderWithItems) {
   const adminUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/admin`;
 
   const html = baseWrapper(
-    `New order #${order.orderNumber}`,
+    `New order #${escapeHtml(order.orderNumber)}`,
     `
-    <p><b>${order.customerName}</b> · ${order.customerPhone} · ${order.customerEmail}</p>
+    <p><b>${escapeHtml(order.customerName)}</b> · ${escapeHtml(order.customerPhone)} · ${escapeHtml(order.customerEmail)}</p>
     ${fulfillmentLine(order)}
-    ${order.notes ? `<p><b>Note:</b> ${order.notes}</p>` : ""}
+    ${order.notes ? `<p><b>Note:</b> ${escapeHtml(order.notes)}</p>` : ""}
     ${itemsTable(order.items)}
     <p style="font-size:16px;font-weight:bold">Total to collect (cash): ${money(order.total)}</p>
     <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Open admin portal</a></p>
@@ -168,7 +204,7 @@ export async function sendStatusUpdateEmail(order: OrderWithItems) {
 
   const html = baseWrapper(
     label,
-    `<p>Order <b>#${order.orderNumber}</b> — total ${money(order.total)} (cash on ${
+    `<p>Order <b>#${escapeHtml(order.orderNumber)}</b> — total ${money(order.total)} (cash on ${
       order.fulfillment === "PICKUP" ? "pickup" : "delivery"
     }).</p>`
   );
@@ -200,7 +236,7 @@ export async function sendLowStockAlert(items: { productName: string; sizeLabel:
     `
     <p>The following items are running low:</p>
     <ul style="font-size:14px">
-      ${items.map((i) => `<li><b>${i.productName}</b> (${i.sizeLabel}) — ${i.stock} left</li>`).join("")}
+      ${items.map((i) => `<li><b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.sizeLabel)}) — ${i.stock} left</li>`).join("")}
     </ul>
     <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Manage products</a></p>
     `
@@ -215,6 +251,33 @@ export async function sendLowStockAlert(items: { productName: string; sizeLabel:
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: storeEmail,
     subject: `⚠️ Low stock: ${items.map((i) => i.productName).join(", ")}`,
+    html,
+  });
+  return { sent: true };
+}
+
+/** Email sent on registration (and on resend) with the one-time code to verify the account's email. */
+export async function sendVerificationEmail(email: string, name: string, code: string) {
+  const transport = getTransport();
+  const html = baseWrapper(
+    "Confirm your email",
+    `
+    <p>Hi ${escapeHtml(name)}, use this code to confirm your email address:</p>
+    <p style="font-size:32px;font-weight:bold;letter-spacing:6px;text-align:center;margin:20px 0;color:#a12e3d">${escapeHtml(code)}</p>
+    <p style="font-size:12px;color:#8a918c">This code expires in 15 minutes. You need to confirm your email before you can place an order.</p>
+    <p style="font-size:12px;color:#8a918c">If you didn't try to create an account, you can ignore this email.</p>
+    `
+  );
+
+  if (!transport) {
+    console.warn("[mailer] SMTP not configured — skipping verification email");
+    return { sent: false, reason: "SMTP not configured" };
+  }
+
+  await transport.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: email,
+    subject: `Your verification code: ${code}`,
     html,
   });
   return { sent: true };

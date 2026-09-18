@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCustomerSession } from "@/lib/customer-auth";
+import { getVerifiedCustomerSession } from "@/lib/customer-auth";
+
+type ReviewRow = {
+  id: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  createdAt: Date;
+  authorName: string;
+};
 
 // Public: list reviews for a product, newest first, plus the average rating.
 export async function GET(req: NextRequest) {
@@ -9,11 +18,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "productId is required." }, { status: 400 });
   }
 
-  const reviews = await prisma.review.findMany({
-    where: { productId },
-    include: { user: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const reviews = await prisma.$queryRaw<ReviewRow[]>`
+    select r.id, r.rating, r.title, r.comment, r.created_at as "createdAt", u.full_name as "authorName"
+    from reviews r
+    join users u on u.id = r.user_id
+    where r.product_id = ${productId}::uuid
+    order by r.created_at desc
+  `;
 
   const count = reviews.length;
   const average = count === 0 ? 0 : reviews.reduce((sum, r) => sum + r.rating, 0) / count;
@@ -21,20 +32,13 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     average: Math.round(average * 10) / 10,
     count,
-    reviews: reviews.map((r) => ({
-      id: r.id,
-      rating: r.rating,
-      title: r.title,
-      comment: r.comment,
-      createdAt: r.createdAt,
-      authorName: r.user.name,
-    })),
+    reviews,
   });
 }
 
 // Customer only: leave one review per product.
 export async function POST(req: NextRequest) {
-  const session = await getCustomerSession();
+  const session = await getVerifiedCustomerSession();
   if (!session) return NextResponse.json({ error: "Please log in to leave a review." }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
@@ -49,22 +53,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "productId and a rating from 1-5 are required." }, { status: 400 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) return NextResponse.json({ error: "Product not found." }, { status: 404 });
+  const product = await prisma.$queryRaw<{ id: string }[]>`select id from products where id = ${productId}::uuid limit 1`;
+  if (!product[0]) return NextResponse.json({ error: "Product not found." }, { status: 404 });
 
   try {
-    const review = await prisma.review.upsert({
-      where: { productId_userId: { productId, userId: session.userId } },
-      update: { rating, title: title?.trim() || null, comment: comment?.trim() || null },
-      create: {
-        productId,
-        userId: session.userId,
-        rating,
-        title: title?.trim() || null,
-        comment: comment?.trim() || null,
-      },
-    });
-    return NextResponse.json(review, { status: 201 });
+    const saved = await prisma.$queryRaw<{ id: string; rating: number; title: string | null; comment: string | null }[]>`
+      insert into reviews (product_id, user_id, rating, title, comment)
+      values (${productId}::uuid, ${session.userId}::uuid, ${rating}, ${title?.trim() || null}, ${comment?.trim() || null})
+      on conflict (product_id, user_id) do update set
+        rating = excluded.rating, title = excluded.title, comment = excluded.comment, updated_at = now()
+      returning id, rating, title, comment
+    `;
+    return NextResponse.json(saved[0], { status: 201 });
   } catch {
     return NextResponse.json({ error: "Could not save your review." }, { status: 500 });
   }

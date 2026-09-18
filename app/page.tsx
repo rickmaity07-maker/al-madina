@@ -730,7 +730,7 @@ export default function Home() {
                   {cartCount === 1 ? "" : "s"}
                 </h3>
               </div>
-              <button onClick={() => setCartOpen(false)} className="icon-btn">
+              <button onClick={() => setCartOpen(false)} className="icon-btn" aria-label={t("Schließen", "Close")}>
                 <X />
               </button>
             </div>
@@ -755,11 +755,11 @@ export default function Home() {
                           {item.sizeLabel} · €{item.price.toFixed(2)}
                         </span>
                         <div className="qty">
-                          <button onClick={() => changeQty(item.key, -1)}>
+                          <button onClick={() => changeQty(item.key, -1)} aria-label={t("Menge verringern", "Decrease quantity")}>
                             <Minus size={13} />
                           </button>
                           <span>{item.qty}</span>
-                          <button onClick={() => changeQty(item.key, 1)}>
+                          <button onClick={() => changeQty(item.key, 1)} aria-label={t("Menge erhöhen", "Increase quantity")}>
                             <Plus size={13} />
                           </button>
                         </div>
@@ -852,7 +852,8 @@ function ProductCard({
             onLike();
           }}
           className={liked ? "heart liked" : "heart"}
-          aria-label="Like"
+          aria-label={liked ? t("Aus Wunschliste entfernen", "Remove from wishlist") : t("Zur Wunschliste hinzufügen", "Add to wishlist")}
+          aria-pressed={liked}
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
         </button>
@@ -928,6 +929,7 @@ function CheckoutModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [success, setSuccess] = useState<{ orderNumber: string; total: number } | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<{ id: string; label: string; address: string; isDefault: boolean }[]>([]);
 
@@ -950,6 +952,7 @@ function CheckoutModal({
     e.preventDefault();
     setError("");
     setNeedsLogin(false);
+    setNeedsVerification(false);
     if (fulfillment === "DELIVERY" && !address.trim()) {
       setError(t("Bitte geben Sie Ihre Lieferadresse an.", "Please enter a delivery address."));
       return;
@@ -972,6 +975,7 @@ function CheckoutModal({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 401) setNeedsLogin(true);
+        if (data.code === "EMAIL_NOT_VERIFIED") setNeedsVerification(true);
         setError(data.error || t("Bestellung fehlgeschlagen. Bitte versuchen Sie es erneut.", "Could not place order. Please try again."));
         setSubmitting(false);
         return;
@@ -987,7 +991,7 @@ function CheckoutModal({
     return (
       <div className="modal-backdrop">
         <div className="checkout-modal">
-          <button className="close-modal" onClick={onSuccess}>
+          <button className="close-modal" onClick={onSuccess} aria-label={t("Schließen", "Close")}>
             <X />
           </button>
           <span className="eyebrow">{t("Bestellung aufgegeben", "Order placed")}</span>
@@ -1011,7 +1015,7 @@ function CheckoutModal({
   return (
     <div className="modal-backdrop">
       <form className="checkout-modal" onSubmit={submit} style={{ maxHeight: "90vh", overflow: "auto" }}>
-        <button type="button" className="close-modal" onClick={onClose}>
+        <button type="button" className="close-modal" onClick={onClose} aria-label={t("Schließen", "Close")}>
           <X />
         </button>
         <span className="eyebrow">{t("Kasse", "Checkout")}</span>
@@ -1062,6 +1066,16 @@ function CheckoutModal({
                 {" "}
                 <Link href="/account" className="text-btn" style={{ display: "inline-flex", padding: 0 }}>
                   {t("Jetzt anmelden", "Log in now")}
+                </Link>
+                {" — "}
+                {t("Ihr Warenkorb bleibt dabei erhalten.", "your basket will still be here.")}
+              </>
+            )}
+            {needsVerification && (
+              <>
+                {" "}
+                <Link href="/account" className="text-btn" style={{ display: "inline-flex", padding: 0 }}>
+                  {t("E-Mail jetzt bestätigen", "Verify your email now")}
                 </Link>
                 {" — "}
                 {t("Ihr Warenkorb bleibt dabei erhalten.", "your basket will still be here.")}
@@ -1192,7 +1206,7 @@ function ProductDetailModal({
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="checkout-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: "90vh", overflow: "auto", maxWidth: 640 }}>
-        <button type="button" className="close-modal" onClick={onClose}>
+        <button type="button" className="close-modal" onClick={onClose} aria-label={t("Schließen", "Close")}>
           <X />
         </button>
 
@@ -1203,7 +1217,13 @@ function ProductDetailModal({
             <span className="eyebrow">{product.category}</span>
             <h2 style={{ fontSize: 28 }}>{product.name}</h2>
           </div>
-          <button onClick={onLike} className={liked ? "heart liked" : "heart"} aria-label="Save for later" style={{ position: "static" }}>
+          <button
+            onClick={onLike}
+            className={liked ? "heart liked" : "heart"}
+            aria-label={liked ? t("Aus Wunschliste entfernen", "Remove from wishlist") : t("Zur Wunschliste hinzufügen", "Add to wishlist")}
+            aria-pressed={liked}
+            style={{ position: "static" }}
+          >
             <Heart size={20} fill={liked ? "currentColor" : "none"} />
           </button>
         </div>

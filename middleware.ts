@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { JWT_SECRET } from "@/lib/jwt-secret";
 
 // Keep these in sync with ADMIN_COOKIE_NAME / CUSTOMER_COOKIE_NAME in lib/auth.ts / lib/customer-auth.ts
 const ADMIN_COOKIE_NAME = "almadina_admin_session";
 const CUSTOMER_COOKIE_NAME = "almadina_customer_session";
-const SECRET_KEY = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
-const encodedSecret = new TextEncoder().encode(SECRET_KEY);
+const encodedSecret = new TextEncoder().encode(JWT_SECRET);
 
 const OWNER_ONLY_PREFIXES = ["/admin/products", "/admin/analytics"];
 

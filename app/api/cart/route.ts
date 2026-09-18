@@ -1,7 +1,7 @@
 // app/api/cart/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { getCustomerSession } from "@/lib/customer-auth";
+import { getVerifiedCustomerSession } from "@/lib/customer-auth";
 import {
   getCart,
   addToCart,
@@ -21,7 +21,10 @@ const GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
  * mergeGuestCartIntoUser() folds it into their account once they log in.
  */
 async function resolveIdentity(req: NextRequest): Promise<{ identity: CartIdentity; newGuestToken?: string }> {
-  const session = await getCustomerSession();
+  // Verified, not just signature-checked: a stale cookie naming a since-deleted
+  // user would otherwise crash the cart insert with a foreign key violation
+  // instead of falling back to guest behavior.
+  const session = await getVerifiedCustomerSession();
   if (session?.userId) return { identity: { userId: session.userId } };
 
   const existingToken = req.cookies.get(GUEST_COOKIE_NAME)?.value;

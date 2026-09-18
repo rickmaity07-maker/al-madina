@@ -7,14 +7,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const [customerSession, adminSession] = await Promise.all([getCustomerSession(), getAdminSession()]);
 
-  const review = await prisma.review.findUnique({ where: { id } });
-  if (!review) return NextResponse.json({ error: "Review not found." }, { status: 404 });
+  const review = await prisma.$queryRaw<{ id: string; user_id: string }[]>`
+    select id, user_id from reviews where id = ${id}::uuid limit 1
+  `;
+  if (!review[0]) return NextResponse.json({ error: "Review not found." }, { status: 404 });
 
-  const isOwnerCustomer = customerSession && review.userId === customerSession.userId;
+  const isOwnerCustomer = customerSession && review[0].user_id === customerSession.userId;
   if (!isOwnerCustomer && !isOwner(adminSession)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await prisma.review.delete({ where: { id } });
+  await prisma.$executeRaw`delete from reviews where id = ${id}::uuid`;
   return NextResponse.json({ ok: true });
 }

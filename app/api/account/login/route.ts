@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signCustomerToken, CUSTOMER_COOKIE_NAME } from "@/lib/customer-auth";
 import { mergeGuestCartIntoUser } from "@/lib/cart";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const GUEST_CART_COOKIE_NAME = "almadina_guest_cart";
 
@@ -14,9 +15,16 @@ type UserRow = {
   full_name: string;
   phone: string | null;
   role: "OWNER" | "STAFF" | null;
+  email_verified: boolean;
 };
 
 export async function POST(req: NextRequest) {
+  const ip = clientIp(req);
+  const { allowed } = rateLimit(`account-login:${ip}`, 10, 60_000);
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many login attempts. Please try again in a minute." }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => ({}));
   const { email, password } = body as { email?: string; password?: string };
 
@@ -27,7 +35,8 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = email.trim().toLowerCase();
 
   const rows = await prisma.$queryRaw<UserRow[]>`
-    select u.id, u.email, u.password_hash, u.full_name, u.phone, a.role
+    select u.id, u.email, u.password_hash, u.full_name, u.phone, a.role,
+           (u.email_verified_at is not null) as email_verified
     from users u
     left join admin_users a on a.user_id = u.id
     where u.email = ${normalizedEmail} and u.deleted_at is null
@@ -59,6 +68,7 @@ export async function POST(req: NextRequest) {
     email: user.email,
     phone: user.phone,
     role: user.role,
+    emailVerified: user.email_verified,
   });
   res.cookies.set(CUSTOMER_COOKIE_NAME, token, {
     httpOnly: true,

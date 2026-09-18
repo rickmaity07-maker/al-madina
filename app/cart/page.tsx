@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { cookies } from "next/headers";
-import { getCustomerSession } from "@/lib/customer-auth";
+import { getVerifiedCustomerSession } from "@/lib/customer-auth";
 import { getCart, type CartIdentity } from "@/lib/cart";
 import { getCartMinimum } from "@/lib/pricing";
 import { CartView } from "@/app/components/CartView";
@@ -10,7 +10,7 @@ import { CartView } from "@/app/components/CartView";
 const GUEST_COOKIE_NAME = "almadina_guest_cart";
 
 export default async function CartPage() {
-  const session = await getCustomerSession();
+  const session = await getVerifiedCustomerSession();
   const store = await cookies();
   const guestToken = store.get(GUEST_COOKIE_NAME)?.value;
 

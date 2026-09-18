@@ -1,7 +1,7 @@
 // app/api/account/wishlist/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCustomerSession } from "@/lib/customer-auth";
+import { getCustomerSession, getVerifiedCustomerSession } from "@/lib/customer-auth";
 
 type WishlistProductRow = { id: string; name: string; slug: string; image: string | null; category: string | null };
 type VariantRow = {
@@ -53,7 +53,7 @@ export async function GET() {
 
 // Customer only: add a product to the wishlist.
 export async function POST(req: NextRequest) {
-  const session = await getCustomerSession();
+  const session = await getVerifiedCustomerSession();
   if (!session) return NextResponse.json({ error: "Please log in to save items." }, { status: 401 });
 
   const { productId } = await req.json().catch(() => ({}));

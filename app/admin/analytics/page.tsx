@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
     <AdminShell>
       <h1 className="text-2xl font-serif mb-6">Analytics</h1>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-black/5 p-5">
           <div className="flex items-center gap-2 text-black/50 text-xs uppercase tracking-wide mb-2">
             <Receipt size={14} /> Revenue (30d)

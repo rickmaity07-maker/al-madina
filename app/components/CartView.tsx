@@ -54,13 +54,17 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
                 {item.size_label} · {formatCurrency(item.price)}
               </span>
               <div className="qty">
-                <button onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}>
+                <button
+                  onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}
+                  aria-label="Decrease quantity"
+                >
                   <Minus size={13} />
                 </button>
                 <span>{item.quantity}</span>
                 <button
                   onClick={() => startTransition(() => updateQuantity(item.id, item.quantity + 1))}
                   disabled={item.quantity >= item.stock_quantity}
+                  aria-label="Increase quantity"
                 >
                   <Plus size={13} />
                 </button>

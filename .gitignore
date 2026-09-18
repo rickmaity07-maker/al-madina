@@ -7,3 +7,9 @@ dist
 *.db
 *.db-journal
 .DS_Store
+# Added by code-review-graph
+.code-review-graph/
+
+# Local AI-assistant tooling (machine-specific paths / local cache — not project config)
+.vexp/
+.mcp.json

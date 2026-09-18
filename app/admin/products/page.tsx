@@ -19,7 +19,7 @@ type Product = {
 
 const EMPTY: Omit<Product, "id"> = {
   name: "",
-  category: "Fresh",
+  category: "",
   description: "",
   image: "",
   badge: "",
@@ -28,12 +28,14 @@ const EMPTY: Omit<Product, "id"> = {
   sizes: [{ label: "", price: "" }],
 };
 
-const CATEGORIES = ["Fresh", "Bakery", "Pantry", "Chilled", "Sweets", "Spices", "Drinks", "Halal Meat", "Household"];
-
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | (Omit<Product, "id"> & { id?: string }) | null>(null);
+
+  // Categories are free-form (typed, then found-or-created server-side) —
+  // suggest whatever's actually in use rather than a fixed, possibly stale list.
+  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort();
 
   async function load() {
     setLoading(true);
@@ -112,7 +114,7 @@ export default function AdminProductsPage() {
             <button onClick={() => setEditing(p)} className="btn-outline">
               <Pencil size={13} /> Edit
             </button>
-            <button onClick={() => handleDelete(p.id)} className="btn-danger">
+            <button onClick={() => handleDelete(p.id)} className="btn-danger" aria-label={`Delete ${p.name}`}>
               <Trash2 size={13} />
             </button>
           </div>
@@ -124,17 +126,19 @@ export default function AdminProductsPage() {
         )}
       </div>
 
-      {editing && <ProductModal initial={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <ProductModal initial={editing} categories={categories} onClose={() => setEditing(null)} onSave={handleSave} />}
     </AdminShell>
   );
 }
 
 function ProductModal({
   initial,
+  categories,
   onClose,
   onSave,
 }: {
   initial: Omit<Product, "id"> & { id?: string };
+  categories: string[];
   onClose: () => void;
   onSave: (data: typeof EMPTY & { id?: string }) => void;
 }) {
@@ -163,7 +167,7 @@ function ProductModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-auto">
       <div className="bg-white rounded-2xl w-full max-w-lg p-6 my-8 relative">
-        <button onClick={onClose} className="absolute right-4 top-4 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
+        <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
           <X size={16} />
         </button>
         <h2 className="font-serif text-2xl mb-5">{form.id ? "Edit product" : "Add product"}</h2>
@@ -175,11 +179,19 @@ function ProductModal({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
-              <select value={form.category} onChange={(e) => setField("category", e.target.value)} className="input">
-                {CATEGORIES.map((c) => (
-                  <option key={c}>{c}</option>
+              <input
+                value={form.category}
+                onChange={(e) => setField("category", e.target.value)}
+                placeholder="e.g. Bakery"
+                list="category-suggestions"
+                className="input"
+                required
+              />
+              <datalist id="category-suggestions">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
                 ))}
-              </select>
+              </datalist>
             </Field>
             <Field label="Badge (optional)">
               <input value={form.badge || ""} onChange={(e) => setField("badge", e.target.value)} placeholder="e.g. Heute frisch" className="input" />
@@ -225,7 +237,7 @@ function ProductModal({
                     placeholder="Was € (opt.)"
                     className="input"
                   />
-                  <button onClick={() => removeSize(i)} className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
+                  <button onClick={() => removeSize(i)} aria-label="Remove size" className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
                     <Trash2 size={14} />
                   </button>
                 </div>

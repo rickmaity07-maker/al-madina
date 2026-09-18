@@ -43,7 +43,7 @@ async function getVariants(productId: string): Promise<Variant[]> {
   const rows = await prisma.$queryRaw<VariantRow[]>`
     select id, sku, size_label, price, compare_at_price, stock_quantity
     from product_variants
-    where product_id = ${productId} and is_active = true
+    where product_id = ${productId}::uuid and is_active = true
     order by sort_order asc, size_value asc nulls last
   `;
 

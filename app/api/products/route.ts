@@ -1,21 +1,15 @@
 // app/api/products/route.ts
 //
-// GET now reads from the new schema (products/product_variants/categories/
-// reviews) so the IDs the storefront hands to checkout are real
-// product_variants.id uuids that /api/orders can actually look up — this
-// is the piece that was still pointed at the old Product/ProductSize
-// tables, causing an ID mismatch with the new checkout.
-//
-// POST (admin "add product") still writes to the OLD Product/ProductSize
-// tables via Prisma — a product created through the current admin UI will
-// NOT show up here until that's rewritten too. Flagging this rather than
-// leaving it silently broken: the next piece of work is an admin
-// products page against the new schema.
+// Both GET (storefront listing) and POST (admin "add product") read/write
+// the new schema (products/product_variants/categories) — the IDs the
+// storefront hands to checkout are real product_variants.id uuids that
+// /api/orders can look up directly.
 
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession, isOwner } from "@/lib/auth";
+import { getAdminProductView, replaceVariants, resolveCategoryId, uniqueProductSlug } from "@/lib/catalog-admin";
 
 type ProductRow = {
   id: string;
@@ -92,9 +86,6 @@ export async function GET() {
 }
 
 // Admin only: create a product with its sizes.
-// NOTE: still writes to the OLD Product/ProductSize tables — see the file-level
-// comment above. This means products created here won't appear in the GET
-// above until this is rewritten against products/product_variants too.
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
   if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
@@ -109,27 +100,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const product = await prisma.product.create({
-    data: {
-      name,
-      category,
-      description: description || null,
-      image,
-      badge: badge || null,
-      unitNote: unitNote || null,
-      active: active ?? true,
-      sizes: {
-        create: sizes.map((s: { label: string; price: number; oldPrice?: number; stock?: number }, i: number) => ({
-          label: s.label,
-          price: Number(s.price),
-          oldPrice: s.oldPrice ? Number(s.oldPrice) : null,
-          stock: s.stock ?? 999,
-          sortOrder: i,
-        })),
-      },
-    },
-    include: { sizes: true },
+  const slug = await uniqueProductSlug(name);
+  const categoryId = await resolveCategoryId(category);
+
+  const productId = await prisma.$transaction(async (tx) => {
+    const created = await tx.$queryRaw<{ id: string }[]>`
+      insert into products (category_id, name, slug, description, image_url, badge, unit_note, is_active)
+      values (${categoryId}::uuid, ${name.trim()}, ${slug}, ${description || null}, ${image}, ${badge || null}, ${unitNote || null}, ${active ?? true})
+      returning id
+    `;
+    const id = created[0].id;
+    await replaceVariants(tx, id, slug, sizes);
+    return id;
   });
 
+  const product = await getAdminProductView(productId);
   return NextResponse.json(product, { status: 201 });
 }

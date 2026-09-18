@@ -1,0 +1,106 @@
+import { randomBytes } from "crypto";
+import { prisma } from "./prisma";
+import { slugify } from "./slug";
+
+/** Finds a unique products.slug for `name`, appending -2, -3, … on collision. */
+export async function uniqueProductSlug(name: string, excludeId?: string): Promise<string> {
+  const base = slugify(name);
+  let candidate = base;
+  let n = 2;
+  for (;;) {
+    const rows = excludeId
+      ? await prisma.$queryRaw<{ id: string }[]>`select id from products where slug = ${candidate} and id != ${excludeId}::uuid limit 1`
+      : await prisma.$queryRaw<{ id: string }[]>`select id from products where slug = ${candidate} limit 1`;
+    if (!rows[0]) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
+/** Finds a category by name (case-insensitive), creating one if it doesn't exist yet. */
+export async function resolveCategoryId(categoryName: string): Promise<string | null> {
+  const trimmed = categoryName?.trim();
+  if (!trimmed) return null;
+
+  const existing = await prisma.$queryRaw<{ id: string }[]>`
+    select id from categories where lower(name) = lower(${trimmed}) limit 1
+  `;
+  if (existing[0]) return existing[0].id;
+
+  const base = slugify(trimmed);
+  let slug = base;
+  let n = 2;
+  for (;;) {
+    const clash = await prisma.$queryRaw<{ id: string }[]>`select id from categories where slug = ${slug} limit 1`;
+    if (!clash[0]) break;
+    slug = `${base}-${n++}`;
+  }
+
+  const created = await prisma.$queryRaw<{ id: string }[]>`
+    insert into categories (name, slug) values (${trimmed}, ${slug}) returning id
+  `;
+  return created[0].id;
+}
+
+/** product_variants.sku is unique but not customer-facing — random suffix keeps this collision-free. */
+export function generateSku(productSlug: string): string {
+  return `${productSlug.toUpperCase().slice(0, 24)}-${randomBytes(3).toString("hex").toUpperCase()}`;
+}
+
+type AdminSize = { label: string; price: number; oldPrice?: number; stock?: number };
+type AdminProductView = {
+  id: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+  image: string | null;
+  badge: string | null;
+  unitNote: string | null;
+  active: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  sizes: { id: string; productId: string; label: string; price: number; oldPrice: number | null; stock: number; sortOrder: number }[];
+};
+
+/** Shapes a single product + its active variants the same way GET /api/products does, for create/update responses. */
+export async function getAdminProductView(id: string): Promise<AdminProductView | null> {
+  const rows = await prisma.$queryRaw<Omit<AdminProductView, "sizes">[]>`
+    select
+      p.id, p.name, c.name as category, p.description, p.image_url as image,
+      p.badge, p.unit_note as "unitNote", p.is_active as active, p.sort_order as "sortOrder",
+      p.created_at as "createdAt", p.updated_at as "updatedAt"
+    from products p
+    left join categories c on c.id = p.category_id
+    where p.id = ${id}::uuid
+  `;
+  const product = rows[0];
+  if (!product) return null;
+
+  const sizes = await prisma.$queryRaw<AdminProductView["sizes"]>`
+    select id, product_id as "productId", size_label as label, price, compare_at_price as "oldPrice",
+           stock_quantity as stock, sort_order as "sortOrder"
+    from product_variants
+    where product_id = ${id}::uuid and is_active = true
+    order by sort_order asc
+  `;
+
+  return { ...product, sizes: sizes.map((s) => ({ ...s, price: Number(s.price), oldPrice: s.oldPrice != null ? Number(s.oldPrice) : null })) };
+}
+
+/** Replaces all of a product's variants — same delete+recreate semantics the old ProductSize CRUD used. */
+export async function replaceVariants(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  productId: string,
+  productSlug: string,
+  sizes: AdminSize[]
+) {
+  await tx.$executeRaw`delete from product_variants where product_id = ${productId}::uuid`;
+  for (let i = 0; i < sizes.length; i++) {
+    const s = sizes[i];
+    const sku = generateSku(productSlug);
+    await tx.$executeRaw`
+      insert into product_variants (product_id, sku, size_label, price, compare_at_price, stock_quantity, sort_order)
+      values (${productId}::uuid, ${sku}, ${s.label}, ${Number(s.price)}, ${s.oldPrice ? Number(s.oldPrice) : null}, ${s.stock ?? 999}, ${i})
+    `;
+  }
+}

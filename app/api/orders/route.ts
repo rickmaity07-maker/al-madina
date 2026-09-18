@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
-import { getCustomerSession } from "@/lib/customer-auth";
+import { getVerifiedCustomerSession } from "@/lib/customer-auth";
 import { generateOrderNumber, generateDeliveryToken, LOW_STOCK_THRESHOLD } from "@/lib/order-utils";
 import { broadcastOrderEvent } from "@/lib/events";
 import { sendCustomerConfirmationEmail, sendStoreNotificationEmail, sendLowStockAlert } from "@/lib/mailer";
+import { isEmailVerified } from "@/lib/email-verification";
+import { isDisposableEmail } from "@/lib/disposable-email";
+import { isPlausiblePhoneNumber } from "@/lib/phone";
 
 const FREE_DELIVERY_THRESHOLD = 40;
 const DELIVERY_FEE = 3.99;
@@ -116,9 +119,15 @@ export async function GET() {
 // Customer only (accounts are mandatory): place a new order. Cash only — no payment is processed here at all.
 export async function POST(req: NextRequest) {
   try {
-    const customerSession = await getCustomerSession();
+    const customerSession = await getVerifiedCustomerSession();
     if (!customerSession?.userId) {
       return NextResponse.json({ error: "Bitte melden Sie sich an, um eine Bestellung aufzugeben." }, { status: 401 });
+    }
+    if (!(await isEmailVerified(customerSession.userId))) {
+      return NextResponse.json(
+        { error: "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse, bevor Sie eine Bestellung aufgeben.", code: "EMAIL_NOT_VERIFIED" },
+        { status: 403 }
+      );
     }
 
     const body = await req.json().catch(() => ({}));
@@ -126,6 +135,15 @@ export async function POST(req: NextRequest) {
 
     if (!customerName || !customerEmail || !customerPhone) {
       return NextResponse.json({ error: "Name, email and phone are required." }, { status: 400 });
+    }
+    if (isDisposableEmail(customerEmail)) {
+      return NextResponse.json(
+        { error: "Please use a permanent email address — temporary/disposable inboxes aren't accepted." },
+        { status: 400 }
+      );
+    }
+    if (!isPlausiblePhoneNumber(customerPhone)) {
+      return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
     }
     if (fulfillment !== "DELIVERY" && fulfillment !== "PICKUP") {
       return NextResponse.json({ error: "fulfillment must be DELIVERY or PICKUP." }, { status: 400 });

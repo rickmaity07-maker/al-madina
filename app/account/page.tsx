@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, LogOut, Package, User as UserIcon, Heart, MapPin, RefreshCw, Plus, Trash2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogOut, Package, User as UserIcon, Heart, MapPin, RefreshCw, Plus, Trash2, ShieldCheck, MailWarning, MailCheck } from "lucide-react";
 
-type Account = { id: string; name: string; email: string; phone: string | null; role: "OWNER" | "STAFF" | null };
+type Account = { id: string; name: string; email: string; phone: string | null; role: "OWNER" | "STAFF" | null; emailVerified: boolean };
 type OrderItem = { id: string; name: string; sizeLabel: string | null; price: number; qty: number };
 type Order = {
   id: string;
@@ -46,6 +46,12 @@ export default function AccountPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMessage, setResendMessage] = useState("");
 
   function loadAccount() {
     fetch("/api/account/me")
@@ -147,6 +153,52 @@ export default function AccountPage() {
     setOrders([]);
   }
 
+  async function submitVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setVerifyError("");
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/account/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: verifyCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setVerifyError(data.error || "Could not verify that code.");
+        setVerifying(false);
+        return;
+      }
+      setVerifyCode("");
+      loadAccount();
+    } catch {
+      setVerifyError("Connection error. Please try again.");
+    }
+    setVerifying(false);
+  }
+
+  async function resendVerification() {
+    setResendMessage("");
+    setVerifyError("");
+    const res = await fetch("/api/account/resend-verification", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      setVerifyError(data.error || "Could not resend the code.");
+      return;
+    }
+    setResendMessage("A new code was sent to your email.");
+    setResendCooldown(60);
+    const timer = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] py-10 px-4 md:px-8">
       <div className="w-full max-w-3xl mx-auto">
@@ -237,6 +289,58 @@ export default function AccountPage() {
                 </button>
               </div>
             </div>
+
+            {/* Email verification */}
+            {account.emailVerified ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--green)" }}>
+                <MailCheck size={16} /> Email verified
+              </div>
+            ) : (
+              <div
+                className="bg-white rounded-xl border border-black/5 shadow-sm"
+                style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
+                  <MailWarning size={18} color="#c79a3a" /> Confirm your email to place orders
+                </div>
+                <p style={{ fontSize: 13, ...muted }}>
+                  We sent a 6-digit code to <b>{account.email}</b>. Enter it below — you can browse and save items
+                  to your basket without this, but you'll need to confirm your email before checking out.
+                </p>
+                <form onSubmit={submitVerifyCode} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    required
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="6-digit code"
+                    value={verifyCode}
+                    onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                    style={{
+                      border: "1px solid var(--line)",
+                      borderRadius: 10,
+                      padding: "9px 13px",
+                      fontSize: 16,
+                      letterSpacing: 4,
+                      width: 140,
+                    }}
+                  />
+                  <button className="primary-btn" disabled={verifying || verifyCode.length !== 6}>
+                    {verifying ? "Checking…" : "Verify"}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-btn"
+                    onClick={resendVerification}
+                    disabled={resendCooldown > 0}
+                    style={{ fontSize: 13 }}
+                  >
+                    {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : "Resend code"}
+                  </button>
+                </form>
+                {verifyError && <div className="checkout-error">{verifyError}</div>}
+                {resendMessage && <small style={{ color: "var(--green)" }}>{resendMessage}</small>}
+              </div>
+            )}
 
             {/* Orders */}
             <section>

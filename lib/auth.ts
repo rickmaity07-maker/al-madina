@@ -3,9 +3,10 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { getCustomerSession } from "./customer-auth";
+import { JWT_SECRET } from "./jwt-secret";
 
 const COOKIE_NAME = "almadina_admin_session";
-const SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
+const SECRET = JWT_SECRET;
 
 export type AdminRole = "OWNER" | "STAFF";
 

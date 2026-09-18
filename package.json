@@ -8,15 +8,16 @@
     "start": "next start",
     "lint": "next lint",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",
     "@tailwindcss/postcss": "^4.1.13",
     "bcryptjs": "^2.4.3",
+    "disposable-email-domains": "^1.0.62",
     "jose": "^6.2.12",
     "jsonwebtoken": "^9.0.2",
+    "libphonenumber-js": "^1.13.13",
     "lucide-react": "^0.468.0",
     "next": "^15.5.3",
     "nodemailer": "^6.9.16",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/disposable-email-domains": "^1.0.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^24.3.0",
     "@types/nodemailer": "^6.4.24",
