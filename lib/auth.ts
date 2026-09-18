@@ -1,5 +1,8 @@
+// lib/auth.ts
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
+import { prisma } from "./prisma";
+import { getCustomerSession } from "./customer-auth";
 
 const COOKIE_NAME = "almadina_admin_session";
 const SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
@@ -7,9 +10,9 @@ const SECRET = process.env.JWT_SECRET || "dev-only-insecure-secret-change-me";
 export type AdminRole = "OWNER" | "STAFF";
 
 export type AdminTokenPayload = {
-  username: string; // email for a real AdminUser account, or the .env ADMIN_USERNAME for the fallback login
+  username: string; // email for a real admin account, or the .env ADMIN_USERNAME for the fallback login
   role: AdminRole;
-  adminId: string | null; // null when logged in via the .env fallback account
+  adminId: string | null; // the customer users.id when authenticated via the shared login, null for the .env fallback
 };
 
 export function signAdminToken(payload: AdminTokenPayload) {
@@ -31,12 +34,32 @@ export function isOwner(session: AdminTokenPayload | null): boolean {
 
 export const ADMIN_COOKIE_NAME = COOKIE_NAME;
 
-/** Server-side helper: read + verify the admin session cookie in Route Handlers / Server Components. */
+/**
+ * Server-side helper: is the current visitor an admin? Checks two paths:
+ *  1. The .env fallback super-admin, via its own cookie from /admin/login.
+ *  2. The normal customer login — if this account has an admin_users row,
+ *     they're an admin too, no separate credentials needed.
+ */
 export async function getAdminSession(): Promise<AdminTokenPayload | null> {
   const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  return verifyAdminToken(token);
+  const fallbackToken = store.get(COOKIE_NAME)?.value;
+  if (fallbackToken) {
+    const payload = verifyAdminToken(fallbackToken);
+    if (payload) return payload;
+  }
+
+  const customerSession = await getCustomerSession();
+  if (!customerSession?.userId) return null;
+
+  const rows = await prisma.$queryRaw<{ role: AdminRole; email: string }[]>`
+    select a.role, u.email
+    from admin_users a
+    join users u on u.id = a.user_id
+    where a.user_id = ${customerSession.userId}::uuid
+  `;
+  if (!rows[0]) return null;
+
+  return { username: rows[0].email, role: rows[0].role, adminId: customerSession.userId };
 }
 
 /** Verify a raw cookie header value (used in middleware, which uses NextRequest cookies directly). */

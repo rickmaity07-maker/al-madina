@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, LogOut, Package, User as UserIcon, Heart, MapPin, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, LogOut, Package, User as UserIcon, Heart, MapPin, RefreshCw, Plus, Trash2, ShieldCheck } from "lucide-react";
 
-type Account = { id: string; name: string; email: string; phone: string | null };
+type Account = { id: string; name: string; email: string; phone: string | null; role: "OWNER" | "STAFF" | null };
 type OrderItem = { id: string; name: string; sizeLabel: string | null; price: number; qty: number };
 type Order = {
   id: string;
@@ -191,9 +191,19 @@ export default function AccountPage() {
                   <small className="text-black/60 text-sm">{account.email}</small>
                 </div>
               </div>
-              <button className="text-sm flex items-center gap-2 text-black/70 hover:text-black" onClick={logout}>
-                <LogOut size={16} /> Log out
-              </button>
+              <div className="flex items-center gap-4">
+                {account.role && (
+                  <Link
+                    href="/admin"
+                    className="text-sm flex items-center gap-2 rounded-full bg-[#a12e3d] text-white px-4 py-2 hover:bg-[#8a2734]"
+                  >
+                    <ShieldCheck size={16} /> Admin
+                  </Link>
+                )}
+                <button className="text-sm flex items-center gap-2 text-black/70 hover:text-black" onClick={logout}>
+                  <LogOut size={16} /> Log out
+                </button>
+              </div>
             </div>
 
             {/* Orders */}

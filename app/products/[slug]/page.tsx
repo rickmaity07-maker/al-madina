@@ -60,11 +60,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
       {product.category_name && (
-        <p className="text-sm text-(--muted)">{product.category_name}</p>
+        <p className="text-sm text-[var(--muted)]">{product.category_name}</p>
       )}
 
       <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <div className="aspect-square overflow-hidden rounded-2xl bg-(--cream)">
+        <div className="aspect-square overflow-hidden rounded-2xl bg-[var(--cream)]">
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -76,10 +76,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
 
         <div className="flex flex-col gap-4">
-          <h1 className="font-serif text-4xl leading-tight text-(--ink)">{product.name}</h1>
-          {product.unit_note && <p className="text-(--muted)">{product.unit_note}</p>}
+          <h1 className="font-serif text-4xl leading-tight text-[var(--ink)]">{product.name}</h1>
+          {product.unit_note && <p className="text-[var(--muted)]">{product.unit_note}</p>}
           {product.description && (
-            <p className="leading-relaxed text-(--ink)/80">{product.description}</p>
+            <p className="leading-relaxed text-[var(--ink)]/80">{product.description}</p>
           )}
 
           <VariantSelector variants={variants} />

@@ -10,6 +10,7 @@ type UserRow = {
   password_hash: string;
   full_name: string;
   phone: string | null;
+  role: "OWNER" | "STAFF" | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -23,9 +24,10 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = email.trim().toLowerCase();
 
   const rows = await prisma.$queryRaw<UserRow[]>`
-    select id, email, password_hash, full_name, phone
-    from users
-    where email = ${normalizedEmail} and deleted_at is null
+    select u.id, u.email, u.password_hash, u.full_name, u.phone, a.role
+    from users u
+    left join admin_users a on a.user_id = u.id
+    where u.email = ${normalizedEmail} and u.deleted_at is null
     limit 1
   `;
   const user = rows[0];
@@ -45,6 +47,7 @@ export async function POST(req: NextRequest) {
     name: user.full_name,
     email: user.email,
     phone: user.phone,
+    role: user.role,
   });
   res.cookies.set(CUSTOMER_COOKIE_NAME, token, {
     httpOnly: true,

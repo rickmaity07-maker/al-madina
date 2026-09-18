@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     name: user.full_name,
     email: user.email,
     phone: user.phone,
+    role: null, // a brand-new account can't already be an admin
   });
   res.cookies.set(CUSTOMER_COOKIE_NAME, token, {
     httpOnly: true,
