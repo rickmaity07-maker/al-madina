@@ -54,9 +54,12 @@ export async function getOrCreateCartId(identity: CartIdentity): Promise<string>
   return created[0].id;
 }
 
-export async function getCart(identity: CartIdentity): Promise<Cart> {
-  const cartId = await getOrCreateCartId(identity);
-
+// Split from getCart() so mutating operations that already resolved a
+// cartId (add/update/remove, all below) can re-fetch the cart without a
+// redundant getOrCreateCartId() round trip — each Neon round trip from
+// local dev adds real, user-visible latency, and every mutation used to
+// pay for the identity lookup twice.
+async function getCartByCartId(cartId: string): Promise<Cart> {
   const rows = await prisma.$queryRaw<(Omit<CartItem, "price"> & { price: string })[]>`
     select
       ci.id, ci.variant_id, ci.quantity,
@@ -73,6 +76,11 @@ export async function getCart(identity: CartIdentity): Promise<Cart> {
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return { cartId, items, subtotal };
+}
+
+export async function getCart(identity: CartIdentity): Promise<Cart> {
+  const cartId = await getOrCreateCartId(identity);
+  return getCartByCartId(cartId);
 }
 
 export async function addToCart(
@@ -103,7 +111,7 @@ export async function addToCart(
     `;
   }
 
-  return getCart(identity);
+  return getCartByCartId(cartId);
 }
 
 export async function updateCartItemQuantity(
@@ -115,7 +123,7 @@ export async function updateCartItemQuantity(
 
   if (quantity <= 0) {
     await prisma.$executeRaw`delete from cart_items where id = ${itemId}::uuid and cart_id = ${cartId}::uuid`;
-    return getCart(identity);
+    return getCartByCartId(cartId);
   }
 
   const variant = await prisma.$queryRaw<{ stock_quantity: number }[]>`
@@ -129,13 +137,13 @@ export async function updateCartItemQuantity(
   await prisma.$executeRaw`
     update cart_items set quantity = ${quantity} where id = ${itemId}::uuid and cart_id = ${cartId}::uuid
   `;
-  return getCart(identity);
+  return getCartByCartId(cartId);
 }
 
 export async function removeCartItem(identity: CartIdentity, itemId: string): Promise<Cart> {
   const cartId = await getOrCreateCartId(identity);
   await prisma.$executeRaw`delete from cart_items where id = ${itemId}::uuid and cart_id = ${cartId}::uuid`;
-  return getCart(identity);
+  return getCartByCartId(cartId);
 }
 
 export async function clearCart(identity: CartIdentity): Promise<void> {

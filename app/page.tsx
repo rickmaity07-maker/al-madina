@@ -109,6 +109,11 @@ export default function Home() {
 
   const [productsError, setProductsError] = useState(false);
 
+  // Cart-fetch responses can arrive out of order (e.g. the initial GET on
+  // mount racing a near-instant "add to cart" click) — this guards against
+  // a stale response clobbering a newer one.
+  const cartSeqRef = useRef(0);
+
   useEffect(() => {
     fetch("/api/products")
       .then((res) => {
@@ -132,9 +137,12 @@ export default function Home() {
 
   // Load the cart (guest or account, whichever this browser already has) once on mount.
   useEffect(() => {
+    const seq = ++cartSeqRef.current;
     fetch("/api/cart")
       .then((res) => res.json())
-      .then((data) => setCart(mapServerCart(data.items)))
+      .then((data) => {
+        if (cartSeqRef.current === seq) setCart(mapServerCart(data.items));
+      })
       .catch(() => {});
   }, []);
 
@@ -221,6 +229,7 @@ export default function Home() {
   }
 
   function addToCart(product: Product, size: ProductSize, qty: number = 1, silent: boolean = false) {
+    const seq = ++cartSeqRef.current;
     fetch("/api/cart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -232,7 +241,7 @@ export default function Home() {
           showToast(data.error || t("Konnte nicht hinzugefügt werden", "Couldn't add that to your basket"));
           return;
         }
-        setCart(mapServerCart(data.items));
+        if (cartSeqRef.current === seq) setCart(mapServerCart(data.items));
         if (!silent) showToast(t(`${product.name} (${size.label}) wurde hinzugefügt`, `${product.name} (${size.label}) added to your basket`));
       })
       .catch(() => showToast(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again.")));
@@ -243,6 +252,7 @@ export default function Home() {
     if (!current) return;
     const nextQty = current.qty + delta;
 
+    const seq = ++cartSeqRef.current;
     fetch("/api/cart", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -254,7 +264,7 @@ export default function Home() {
           showToast(data.error || t("Konnte nicht aktualisiert werden", "Couldn't update that item"));
           return;
         }
-        setCart(mapServerCart(data.items));
+        if (cartSeqRef.current === seq) setCart(mapServerCart(data.items));
       })
       .catch(() => showToast(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again.")));
   }
@@ -330,6 +340,7 @@ export default function Home() {
   }, [products]);
 
   function clearCartAfterOrder() {
+    cartSeqRef.current++;
     fetch("/api/cart", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
     setCart([]);
     setCheckoutOpen(false);

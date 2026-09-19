@@ -40,7 +40,17 @@ export function rateLimit(key: string, limit: number, windowMs: number): { allow
   return { allowed: true, retryAfterMs: 0 };
 }
 
-/** Best-effort client IP from the standard proxy header (Vercel/most hosts set this). */
+/**
+ * Best-effort client IP for rate-limit keys.
+ *
+ * `x-forwarded-for` is client-settable on any request that doesn't pass
+ * through a proxy that overwrites it, so a client can spoof a fresh value
+ * per request and get a brand-new rate-limit bucket every time — defeating
+ * the whole point. `x-vercel-forwarded-for` is set by Vercel's edge network
+ * itself and cannot be overridden by the client, so prefer it when present.
+ */
 export function clientIp(req: NextRequest): string {
+  const trusted = req.headers.get("x-vercel-forwarded-for");
+  if (trusted) return trusted.split(",")[0].trim();
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }

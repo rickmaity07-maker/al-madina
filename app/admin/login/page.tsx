@@ -52,6 +52,8 @@ export default function AdminLoginPage() {
 
         <label className="block text-xs font-semibold text-black/60 mb-1">{t("Benutzername", "Username")}</label>
         <input
+          name="username"
+          autoComplete="username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           className="w-full mb-4 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none focus:border-[#a12e3d]"
@@ -62,6 +64,8 @@ export default function AdminLoginPage() {
         <label className="block text-xs font-semibold text-black/60 mb-1">{t("Passwort", "Password")}</label>
         <input
           type="password"
+          name="password"
+          autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full mb-5 rounded-lg border border-black/10 px-3 py-2 text-sm outline-none focus:border-[#a12e3d]"
