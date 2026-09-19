@@ -9,7 +9,7 @@
 .btn-danger:hover{background:#ffe3e2}
 
 :root{--ink:#241217;--muted:#6f5f63;--cream:#fffaf0;--green:#a12e3d;--lime:#e3b23c;--leaf:#4f9d5f;--line:rgba(161,46,61,.16);--deep:#5c1119}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}a{text-decoration:none;color:inherit}button,input{font:inherit}button{cursor:pointer}
+*{box-sizing:border-box}html{scroll-behavior:smooth;overflow-x:hidden;width:100%}body{margin:0;background:var(--cream);font-family:Arial,Helvetica,sans-serif;color:var(--ink);width:100%}a{text-decoration:none;color:inherit}button,input{font:inherit}button{cursor:pointer}
 .topbar{background:linear-gradient(90deg,#78192a 0%,#a12e3d 52%,#841b28 100%);color:#fff9e8;text-align:center;font-size:12px;letter-spacing:.02em;padding:9px 15px}.brand{display:flex;align-items:center;gap:10px;line-height:1}.brand b{display:block;font-family:Georgia,serif;font-size:23px;letter-spacing:-.04em}.brand small{display:block;color:#7d867f;font-size:8px;letter-spacing:.14em;text-transform:uppercase;margin-top:4px}.brand-mark{width:37px;height:37px;border-radius:12px 12px 12px 3px;background:linear-gradient(135deg,#a12e3d,#7a1a26);color:white;display:grid;place-items:center;font:700 12px Georgia,serif;transform:rotate(-3deg)}nav a,.footer-links a,.visit-links a{transition:.2s}nav a:hover,.footer-links a:hover{color:#a12e3d}.icon-btn{border:1px solid var(--line);background:white;width:40px;height:40px;border-radius:50%;display:grid;place-items:center}.cart-btn{border:0;background:linear-gradient(135deg,#a12e3d,#7a1a26);color:white;border-radius:999px;padding:11px 12px 11px 15px;display:flex;align-items:center;gap:8px;font-size:13px}.cart-btn i{font-style:normal;background:#e3b23c;color:#5c1119;min-width:21px;height:21px;border-radius:50%;display:grid;place-items:center;font-size:11px}
 
 /* navbar — logo pinned to the true left edge, links+search centred, utilities pinned right */
@@ -88,7 +88,7 @@ header:hover{box-shadow:0 12px 35px rgba(92,17,25,.08)}
 .reveal.is-visible{opacity:1;transform:none}
 
 /* hero has layered atmosphere */
-.hero{position:relative;isolation:isolate}
+.hero{position:relative;isolation:isolate;overflow:hidden}
 .hero:before,.hero:after{content:"";position:absolute;pointer-events:none;z-index:-1;border-radius:50%;filter:blur(2px)}
 .hero:before{width:360px;height:360px;left:-180px;top:30px;background:radial-gradient(circle,rgba(79,157,95,.16),transparent 68%);animation:orbDrift 11s ease-in-out infinite}
 .hero:after{width:420px;height:420px;right:-190px;bottom:-120px;background:radial-gradient(circle,rgba(227,178,60,.20),transparent 68%);animation:orbDriftReverse 13s ease-in-out infinite}
