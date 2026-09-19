@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AdminShell from "../components/AdminShell";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+import { LOW_STOCK_THRESHOLD } from "@/lib/order-utils";
 
 type Size = { id?: string; label: string; price: number | string; oldPrice?: number | string | null; stock?: number | string };
 type Product = {
@@ -61,7 +62,14 @@ export default function AdminProductsPage() {
       ...data,
       sizes: data.sizes
         .filter((s) => s.label && s.price !== "")
-        .map((s) => ({ label: s.label, price: Number(s.price), oldPrice: s.oldPrice ? Number(s.oldPrice) : undefined, stock: s.stock ? Number(s.stock) : undefined })),
+        .map((s) => ({
+          label: s.label,
+          price: Number(s.price),
+          oldPrice: s.oldPrice ? Number(s.oldPrice) : undefined,
+          // "" (never touched) falls back to the server default (999) — an
+          // explicit 0 must survive as 0 so "out of stock" can be set.
+          stock: s.stock === "" || s.stock == null ? undefined : Number(s.stock),
+        })),
     };
     if (data.id) {
       await fetch(`/api/products/${data.id}`, {
@@ -106,11 +114,19 @@ export default function AdminProductsPage() {
               </div>
               <div className="text-xs text-black/40 mt-0.5">{p.category}</div>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {p.sizes.map((s, i) => (
-                  <span key={i} className="text-[11px] bg-black/5 rounded-full px-2 py-0.5">
-                    {s.label} · €{Number(s.price).toFixed(2)}
-                  </span>
-                ))}
+                {p.sizes.map((s, i) => {
+                  const stock = s.stock != null ? Number(s.stock) : null;
+                  const low = stock != null && stock <= LOW_STOCK_THRESHOLD;
+                  return (
+                    <span
+                      key={i}
+                      className={`text-[11px] rounded-full px-2 py-0.5 ${low ? (stock === 0 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800") : "bg-black/5"}`}
+                    >
+                      {s.label} · €{Number(s.price).toFixed(2)}
+                      {stock != null && ` · ${stock === 0 ? t("ausverkauft", "out of stock") : t(`${stock} auf Lager`, `${stock} in stock`)}`}
+                    </span>
+                  );
+                })}
               </div>
             </div>
             <button onClick={() => setEditing(p)} className="btn-outline">
@@ -214,35 +230,48 @@ function ProductModal({
           </Field>
 
           <div>
-            <label className="text-xs font-semibold text-black/60 mb-1.5 block">{t("Größen & Preise", "Sizes & prices")}</label>
+            <label className="text-xs font-semibold text-black/60 mb-1.5 block">{t("Größen, Preise & Bestand", "Sizes, prices & stock")}</label>
             <div className="grid gap-2">
               {form.sizes.map((s, i) => (
-                <div key={i} className="grid grid-cols-[1fr_90px_90px_36px] gap-2 items-center">
-                  <input
-                    value={s.label}
-                    onChange={(e) => setSize(i, { label: e.target.value })}
-                    placeholder={t("z. B. 500g / 1kg / Klein", "e.g. 500g / 1kg / Small")}
-                    className="input"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={s.price}
-                    onChange={(e) => setSize(i, { price: e.target.value })}
-                    placeholder={t("Preis €", "Price €")}
-                    className="input"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={s.oldPrice ?? ""}
-                    onChange={(e) => setSize(i, { oldPrice: e.target.value })}
-                    placeholder={t("Vorher € (opt.)", "Was € (opt.)")}
-                    className="input"
-                  />
-                  <button onClick={() => removeSize(i)} aria-label={t("Größe entfernen", "Remove size")} className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
-                    <Trash2 size={14} />
-                  </button>
+                <div key={i} className="border border-black/10 rounded-lg p-2.5 grid gap-2">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      value={s.label}
+                      onChange={(e) => setSize(i, { label: e.target.value })}
+                      placeholder={t("z. B. 500g / 1kg / Klein", "e.g. 500g / 1kg / Small")}
+                      className="input flex-1"
+                    />
+                    <button onClick={() => removeSize(i)} aria-label={t("Größe entfernen", "Remove size")} className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={s.price}
+                      onChange={(e) => setSize(i, { price: e.target.value })}
+                      placeholder={t("Preis €", "Price €")}
+                      className="input"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={s.oldPrice ?? ""}
+                      onChange={(e) => setSize(i, { oldPrice: e.target.value })}
+                      placeholder={t("Vorher €", "Was €")}
+                      className="input"
+                    />
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={s.stock ?? ""}
+                      onChange={(e) => setSize(i, { stock: e.target.value })}
+                      placeholder={t("Bestand", "Stock")}
+                      className="input"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
