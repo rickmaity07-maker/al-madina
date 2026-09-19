@@ -9,12 +9,12 @@ export default function NotFound() {
           <SearchX size={26} />
         </div>
         <span className="eyebrow block mb-1">404</span>
-        <h1 style={{ fontSize: 26, margin: "8px 0 8px" }}>Page not found</h1>
+        <h1 style={{ fontSize: 26, margin: "8px 0 8px" }}>Seite nicht gefunden</h1>
         <p style={{ color: "rgba(24,32,27,.6)", fontSize: 14, marginBottom: 24 }}>
-          The page you're looking for doesn't exist or may have moved.
+          Die gesuchte Seite existiert nicht oder wurde verschoben.
         </p>
         <Link href="/" className="primary-btn full" style={{ justifyContent: "center" }}>
-          <ArrowLeft size={16} /> Back to shop
+          <ArrowLeft size={16} /> Zurück zum Shop
         </Link>
       </div>
     </main>

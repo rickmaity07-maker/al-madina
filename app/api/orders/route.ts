@@ -55,7 +55,7 @@ type ItemRow = {
 // Admin only: list all orders, newest first.
 export async function GET() {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   try {
     const ordersRaw = await prisma.$queryRaw<OrderRow[]>`
@@ -134,25 +134,25 @@ export async function POST(req: NextRequest) {
     const { customerName, customerEmail, customerPhone, fulfillment, address, notes, items } = body;
 
     if (!customerName || !customerEmail || !customerPhone) {
-      return NextResponse.json({ error: "Name, email and phone are required." }, { status: 400 });
+      return NextResponse.json({ error: "Name, E-Mail und Telefon sind erforderlich." }, { status: 400 });
     }
     if (isDisposableEmail(customerEmail)) {
       return NextResponse.json(
-        { error: "Please use a permanent email address — temporary/disposable inboxes aren't accepted." },
+        { error: "Bitte verwenden Sie eine dauerhafte E-Mail-Adresse — temporäre Wegwerf-Adressen werden nicht akzeptiert." },
         { status: 400 }
       );
     }
     if (!isPlausiblePhoneNumber(customerPhone)) {
-      return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
+      return NextResponse.json({ error: "Bitte geben Sie eine gültige Telefonnummer ein." }, { status: 400 });
     }
     if (fulfillment !== "DELIVERY" && fulfillment !== "PICKUP") {
-      return NextResponse.json({ error: "fulfillment must be DELIVERY or PICKUP." }, { status: 400 });
+      return NextResponse.json({ error: "fulfillment muss DELIVERY oder PICKUP sein." }, { status: 400 });
     }
     if (fulfillment === "DELIVERY" && !address) {
-      return NextResponse.json({ error: "Address is required for delivery." }, { status: 400 });
+      return NextResponse.json({ error: "Für die Lieferung ist eine Adresse erforderlich." }, { status: 400 });
     }
     if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Your basket is empty." }, { status: 400 });
+      return NextResponse.json({ error: "Ihr Warenkorb ist leer." }, { status: 400 });
     }
 
     const variantIds = items
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean);
 
     if (variantIds.length === 0) {
-      return NextResponse.json({ error: "Invalid items in basket." }, { status: 400 });
+      return NextResponse.json({ error: "Ungültige Artikel im Warenkorb." }, { status: 400 });
     }
 
     const variants = await prisma.$queryRaw<VariantRow[]>`
@@ -187,14 +187,14 @@ export async function POST(req: NextRequest) {
       const variant = variantMap.get(vId);
       if (!variant || !variant.product_active) {
         return NextResponse.json(
-          { error: "One of the items in your basket is no longer available." },
+          { error: "Einer der Artikel in Ihrem Warenkorb ist nicht mehr verfügbar." },
           { status: 400 }
         );
       }
       const qty = Math.max(1, Math.min(50, Number(it.qty) || 1));
       if (variant.stock_quantity < qty) {
         return NextResponse.json(
-          { error: `Only ${variant.stock_quantity} of "${variant.product_name}" (${variant.size_label}) left in stock.` },
+          { error: `Nur noch ${variant.stock_quantity}× "${variant.product_name}" (${variant.size_label}) auf Lager.` },
           { status: 400 }
         );
       }

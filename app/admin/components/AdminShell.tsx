@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX, BarChart3, Menu, X } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 type AdminMe = { username: string; role: "OWNER" | "STAFF"; adminId: string | null };
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
+  const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const [soundOn, setSoundOn] = useState(false);
@@ -83,11 +85,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const isOwner = me?.role === "OWNER";
   const navItems = [
-    { href: "/admin", label: "Orders", icon: ClipboardList },
+    { href: "/admin", label: t("Bestellungen", "Orders"), icon: ClipboardList },
     ...(isOwner
       ? [
-          { href: "/admin/products", label: "Products", icon: Package },
-          { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+          { href: "/admin/products", label: t("Produkte", "Products"), icon: Package },
+          { href: "/admin/analytics", label: t("Analyse", "Analytics"), icon: BarChart3 },
         ]
       : []),
   ];
@@ -107,7 +109,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </a>
         <button
           onClick={() => setNavOpen(true)}
-          aria-label="Open menu"
+          aria-label={t("Menü öffnen", "Open menu")}
           className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center"
         >
           <Menu size={18} />
@@ -130,13 +132,24 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               </a>
               <button
                 onClick={() => setNavOpen(false)}
-                aria-label="Close menu"
+                aria-label={t("Menü schließen", "Close menu")}
                 className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0"
               >
                 <X size={18} />
               </button>
             </div>
-            <AdminNavContents me={me} isOwner={isOwner} navItems={navItems} pathname={pathname} soundOn={soundOn} toggleSound={toggleSound} handleLogout={handleLogout} />
+            <AdminNavContents
+              me={me}
+              isOwner={isOwner}
+              navItems={navItems}
+              pathname={pathname}
+              soundOn={soundOn}
+              toggleSound={toggleSound}
+              handleLogout={handleLogout}
+              language={language}
+              setLanguage={setLanguage}
+              t={t}
+            />
           </aside>
         </div>
       )}
@@ -150,7 +163,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </a>
 
-        <AdminNavContents me={me} isOwner={isOwner} navItems={navItems} pathname={pathname} soundOn={soundOn} toggleSound={toggleSound} handleLogout={handleLogout} />
+        <AdminNavContents
+          me={me}
+          isOwner={isOwner}
+          navItems={navItems}
+          pathname={pathname}
+          soundOn={soundOn}
+          toggleSound={toggleSound}
+          handleLogout={handleLogout}
+          language={language}
+          setLanguage={setLanguage}
+          t={t}
+        />
       </aside>
 
       <main className="flex-1 p-4 lg:p-8 max-w-[1400px] overflow-x-hidden">{children}</main>
@@ -166,6 +190,9 @@ function AdminNavContents({
   soundOn,
   toggleSound,
   handleLogout,
+  language,
+  setLanguage,
+  t,
 }: {
   me: AdminMe | null;
   isOwner: boolean;
@@ -174,6 +201,9 @@ function AdminNavContents({
   soundOn: boolean;
   toggleSound: () => void;
   handleLogout: () => void;
+  language: "de" | "en";
+  setLanguage: (lang: "de" | "en") => void;
+  t: (de: string, en: string) => string;
 }) {
   return (
     <>
@@ -206,19 +236,25 @@ function AdminNavContents({
 
       <div className="mt-auto flex flex-col gap-2">
         <button
+          onClick={() => setLanguage(language === "de" ? "en" : "de")}
+          className="flex items-center justify-center rounded-lg px-3 py-2.5 text-sm font-medium border border-black/10 text-black/60"
+        >
+          {language === "de" ? "English" : "Deutsch"}
+        </button>
+        <button
           onClick={toggleSound}
           className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium border ${
             soundOn ? "border-[#4f9d5f] text-[#2f6b3a] bg-[#4f9d5f]/10" : "border-black/10 text-black/60"
           }`}
         >
           {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          {soundOn ? "New-order sound: ON" : "Enable order sound"}
+          {soundOn ? t("Bestellton: AN", "New-order sound: ON") : t("Bestellton aktivieren", "Enable order sound")}
         </button>
         <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
-          <ShoppingBag size={16} /> View storefront
+          <ShoppingBag size={16} /> {t("Shop ansehen", "View storefront")}
         </a>
         <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
-          <LogOut size={16} /> Log out
+          <LogOut size={16} /> {t("Abmelden", "Log out")}
         </button>
       </div>
     </>

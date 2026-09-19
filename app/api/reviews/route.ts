@@ -15,7 +15,7 @@ type ReviewRow = {
 export async function GET(req: NextRequest) {
   const productId = req.nextUrl.searchParams.get("productId");
   if (!productId) {
-    return NextResponse.json({ error: "productId is required." }, { status: 400 });
+    return NextResponse.json({ error: "productId ist erforderlich." }, { status: 400 });
   }
 
   const reviews = await prisma.$queryRaw<ReviewRow[]>`
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 // Customer only: leave one review per product.
 export async function POST(req: NextRequest) {
   const session = await getVerifiedCustomerSession();
-  if (!session) return NextResponse.json({ error: "Please log in to leave a review." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Bitte melden Sie sich an, um eine Bewertung abzugeben." }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { productId, rating, title, comment } = body as {
@@ -50,11 +50,11 @@ export async function POST(req: NextRequest) {
   };
 
   if (!productId || !rating || rating < 1 || rating > 5) {
-    return NextResponse.json({ error: "productId and a rating from 1-5 are required." }, { status: 400 });
+    return NextResponse.json({ error: "productId und eine Bewertung von 1-5 sind erforderlich." }, { status: 400 });
   }
 
   const product = await prisma.$queryRaw<{ id: string }[]>`select id from products where id = ${productId}::uuid limit 1`;
-  if (!product[0]) return NextResponse.json({ error: "Product not found." }, { status: 404 });
+  if (!product[0]) return NextResponse.json({ error: "Produkt nicht gefunden." }, { status: 404 });
 
   try {
     const saved = await prisma.$queryRaw<{ id: string; rating: number; title: string | null; comment: string | null }[]>`
@@ -66,6 +66,6 @@ export async function POST(req: NextRequest) {
     `;
     return NextResponse.json(saved[0], { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Could not save your review." }, { status: 500 });
+    return NextResponse.json({ error: "Ihre Bewertung konnte nicht gespeichert werden." }, { status: 500 });
   }
 }

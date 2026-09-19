@@ -88,14 +88,14 @@ export async function GET() {
 // Admin only: create a product with its sizes.
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const body = await req.json();
   const { name, category, description, image, badge, unitNote, active, sizes } = body;
 
   if (!name || !category || !image || !Array.isArray(sizes) || sizes.length === 0) {
     return NextResponse.json(
-      { error: "name, category, image and at least one size are required." },
+      { error: "Name, Kategorie, Bild und mindestens eine Größe sind erforderlich." },
       { status: 400 }
     );
   }

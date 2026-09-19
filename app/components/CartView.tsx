@@ -6,8 +6,10 @@ import { useState, useTransition } from "react";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { Cart } from "@/lib/cart";
+import { useLanguage } from "@/lib/i18n";
 
 export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cartMinimum: number }) {
+  const { t } = useLanguage();
   const [cart, setCart] = useState(initialCart);
   const [isPending, startTransition] = useTransition();
 
@@ -26,10 +28,10 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
     return (
       <div className="empty-cart" style={{ minHeight: 320 }}>
         <ShoppingBag size={42} />
-        <h3>Your basket is waiting.</h3>
-        <p>Add a few favourites — they'll show up here.</p>
+        <h3>{t("Ihr Warenkorb wartet.", "Your basket is waiting.")}</h3>
+        <p>{t("Fügen Sie ein paar Favoriten hinzu — sie erscheinen hier.", "Add a few favourites — they'll show up here.")}</p>
         <Link href="/" className="primary-btn">
-          Continue shopping
+          {t("Weiter einkaufen", "Continue shopping")}
         </Link>
       </div>
     );
@@ -56,7 +58,7 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
               <div className="qty">
                 <button
                   onClick={() => startTransition(() => updateQuantity(item.id, item.quantity - 1))}
-                  aria-label="Decrease quantity"
+                  aria-label={t("Menge verringern", "Decrease quantity")}
                 >
                   <Minus size={13} />
                 </button>
@@ -64,7 +66,7 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
                 <button
                   onClick={() => startTransition(() => updateQuantity(item.id, item.quantity + 1))}
                   disabled={item.quantity >= item.stock_quantity}
-                  aria-label="Increase quantity"
+                  aria-label={t("Menge erhöhen", "Increase quantity")}
                 >
                   <Plus size={13} />
                 </button>
@@ -76,25 +78,29 @@ export function CartView({ initialCart, cartMinimum }: { initialCart: Cart; cart
 
       <div className="cart-summary">
         <div>
-          <span>Subtotal</span>
+          <span>{t("Zwischensumme", "Subtotal")}</span>
           <b>{formatCurrency(cart.subtotal)}</b>
         </div>
         {belowMinimum ? (
           <small style={{ textAlign: "left", color: "#b3261e" }}>
-            Add {formatCurrency(cartMinimum - cart.subtotal)} more to reach the {formatCurrency(cartMinimum)} order
-            minimum.
+            {t(
+              `Fügen Sie noch ${formatCurrency(cartMinimum - cart.subtotal)} hinzu, um den Mindestbestellwert von ${formatCurrency(cartMinimum)} zu erreichen.`,
+              `Add ${formatCurrency(cartMinimum - cart.subtotal)} more to reach the ${formatCurrency(cartMinimum)} order minimum.`
+            )}
           </small>
         ) : (
-          <small style={{ textAlign: "left" }}>Delivery fee / pickup option is chosen at checkout.</small>
+          <small style={{ textAlign: "left" }}>
+            {t("Liefergebühr / Abholoption werden an der Kasse gewählt.", "Delivery fee / pickup option is chosen at checkout.")}
+          </small>
         )}
         <Link
           href="/?checkout=1"
           className="primary-btn full"
           style={belowMinimum ? { pointerEvents: "none", opacity: 0.5 } : undefined}
         >
-          Go to checkout
+          {t("Zur Kasse", "Go to checkout")}
         </Link>
-        <small>Cash payment on delivery or pickup</small>
+        <small>{t("Barzahlung bei Lieferung oder Abholung", "Cash payment on delivery or pickup")}</small>
       </div>
     </div>
   );

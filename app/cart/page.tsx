@@ -33,11 +33,11 @@ export default async function CartPage() {
     <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] flex flex-col items-center py-12 px-4 md:px-8">
       <div className="w-full max-w-2xl bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
         <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
-          <ArrowLeft size={16} /> Back to shop
+          <ArrowLeft size={16} /> Zurück zum Shop
         </Link>
 
-        <span className="eyebrow">Your basket</span>
-        <h1 style={{ fontSize: 30, margin: "8px 0 24px" }}>Your cart</h1>
+        <span className="eyebrow">Ihr Warenkorb</span>
+        <h1 style={{ fontSize: 30, margin: "8px 0 24px" }}>Ihr Warenkorb</h1>
 
         <CartView initialCart={cart} cartMinimum={cartMinimum} />
       </div>

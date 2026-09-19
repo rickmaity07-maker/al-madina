@@ -5,7 +5,7 @@ import { getCustomerSession } from "@/lib/customer-auth";
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ productId: string }> }) {
   const session = await getCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const { productId } = await params;
   await prisma.$executeRaw`

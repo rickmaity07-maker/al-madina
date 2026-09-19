@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const product = await prisma.$queryRaw<{ id: string; category_id: string | null }[]>`
     select id, category_id from products where id = ${id}::uuid
   `;
-  if (!product[0]) return NextResponse.json({ error: "Product not found." }, { status: 404 });
+  if (!product[0]) return NextResponse.json({ error: "Produkt nicht gefunden." }, { status: 404 });
 
   // Orders that contained this product.
   const coOrdered = await prisma.$queryRaw<{ order_id: string }[]>`

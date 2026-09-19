@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AdminShell from "../components/AdminShell";
 import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 type Size = { id?: string; label: string; price: number | string; oldPrice?: number | string | null; stock?: number | string };
 type Product = {
@@ -29,6 +30,7 @@ const EMPTY: Omit<Product, "id"> = {
 };
 
 export default function AdminProductsPage() {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | (Omit<Product, "id"> & { id?: string }) | null>(null);
@@ -49,7 +51,7 @@ export default function AdminProductsPage() {
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this product? This cannot be undone.")) return;
+    if (!confirm(t("Dieses Produkt löschen? Dies kann nicht rückgängig gemacht werden.", "Delete this product? This cannot be undone."))) return;
     setProducts((cur) => cur.filter((p) => p.id !== id));
     await fetch(`/api/products/${id}`, { method: "DELETE" });
   }
@@ -82,15 +84,15 @@ export default function AdminProductsPage() {
     <AdminShell>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-serif text-3xl">Products</h1>
-          <p className="text-black/50 text-sm mt-1">Manage what's for sale in the Shop tab — including size options.</p>
+          <h1 className="font-serif text-3xl">{t("Produkte", "Products")}</h1>
+          <p className="text-black/50 text-sm mt-1">{t("Verwalten Sie, was im Shop verkauft wird — einschließlich Größenoptionen.", "Manage what's for sale in the Shop tab — including size options.")}</p>
         </div>
         <button onClick={() => setEditing({ ...EMPTY })} className="btn-primary">
-          <Plus size={15} /> Add product
+          <Plus size={15} /> {t("Produkt hinzufügen", "Add product")}
         </button>
       </div>
 
-      {loading && <div className="text-black/40 text-sm">Loading products…</div>}
+      {loading && <div className="text-black/40 text-sm">{t("Produkte werden geladen…", "Loading products…")}</div>}
 
       <div className="grid gap-3">
         {products.map((p) => (
@@ -99,7 +101,7 @@ export default function AdminProductsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-medium">{p.name}</span>
-                {!p.active && <span className="text-[10px] font-bold bg-black/10 text-black/50 px-2 py-0.5 rounded-full">HIDDEN</span>}
+                {!p.active && <span className="text-[10px] font-bold bg-black/10 text-black/50 px-2 py-0.5 rounded-full">{t("VERSTECKT", "HIDDEN")}</span>}
                 {p.badge && <span className="text-[10px] font-bold bg-[#e3b23c]/30 text-[#7a5a10] px-2 py-0.5 rounded-full">{p.badge}</span>}
               </div>
               <div className="text-xs text-black/40 mt-0.5">{p.category}</div>
@@ -112,16 +114,16 @@ export default function AdminProductsPage() {
               </div>
             </div>
             <button onClick={() => setEditing(p)} className="btn-outline">
-              <Pencil size={13} /> Edit
+              <Pencil size={13} /> {t("Bearbeiten", "Edit")}
             </button>
-            <button onClick={() => handleDelete(p.id)} className="btn-danger" aria-label={`Delete ${p.name}`}>
+            <button onClick={() => handleDelete(p.id)} className="btn-danger" aria-label={t(`${p.name} löschen`, `Delete ${p.name}`)}>
               <Trash2 size={13} />
             </button>
           </div>
         ))}
         {!loading && products.length === 0 && (
           <div className="bg-white rounded-2xl border border-black/5 p-12 text-center text-black/40">
-            No products yet — click "Add product" to create your first one.
+            {t('Noch keine Produkte — klicken Sie auf „Produkt hinzufügen", um Ihr erstes zu erstellen.', 'No products yet — click "Add product" to create your first one.')}
           </div>
         )}
       </div>
@@ -142,6 +144,7 @@ function ProductModal({
   onClose: () => void;
   onSave: (data: typeof EMPTY & { id?: string }) => void;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState(() => ({
     ...EMPTY,
     ...initial,
@@ -167,22 +170,22 @@ function ProductModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-auto">
       <div className="bg-white rounded-2xl w-full max-w-lg p-6 my-8 relative">
-        <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
+        <button onClick={onClose} aria-label={t("Schließen", "Close")} className="absolute right-4 top-4 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
           <X size={16} />
         </button>
-        <h2 className="font-serif text-2xl mb-5">{form.id ? "Edit product" : "Add product"}</h2>
+        <h2 className="font-serif text-2xl mb-5">{form.id ? t("Produkt bearbeiten", "Edit product") : t("Produkt hinzufügen", "Add product")}</h2>
 
         <div className="grid gap-3">
-          <Field label="Name">
+          <Field label={t("Name", "Name")}>
             <input value={form.name} onChange={(e) => setField("name", e.target.value)} className="input" />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Category">
+            <Field label={t("Kategorie", "Category")}>
               <input
                 value={form.category}
                 onChange={(e) => setField("category", e.target.value)}
-                placeholder="e.g. Bakery"
+                placeholder={t("z. B. Bäckerei", "e.g. Bakery")}
                 list="category-suggestions"
                 className="input"
                 required
@@ -193,32 +196,32 @@ function ProductModal({
                 ))}
               </datalist>
             </Field>
-            <Field label="Badge (optional)">
-              <input value={form.badge || ""} onChange={(e) => setField("badge", e.target.value)} placeholder="e.g. Heute frisch" className="input" />
+            <Field label={t("Abzeichen (optional)", "Badge (optional)")}>
+              <input value={form.badge || ""} onChange={(e) => setField("badge", e.target.value)} placeholder={t("z. B. Heute frisch", "e.g. Heute frisch")} className="input" />
             </Field>
           </div>
 
-          <Field label="Image URL">
+          <Field label={t("Bild-URL", "Image URL")}>
             <input value={form.image} onChange={(e) => setField("image", e.target.value)} placeholder="https://…" className="input" />
           </Field>
 
-          <Field label="Description (optional)">
+          <Field label={t("Beschreibung (optional)", "Description (optional)")}>
             <textarea value={form.description || ""} onChange={(e) => setField("description", e.target.value)} className="input" rows={2} />
           </Field>
 
-          <Field label="Unit note (optional)">
-            <input value={form.unitNote || ""} onChange={(e) => setField("unitNote", e.target.value)} placeholder="e.g. sold per kg" className="input" />
+          <Field label={t("Einheit-Hinweis (optional)", "Unit note (optional)")}>
+            <input value={form.unitNote || ""} onChange={(e) => setField("unitNote", e.target.value)} placeholder={t("z. B. verkauft pro kg", "e.g. sold per kg")} className="input" />
           </Field>
 
           <div>
-            <label className="text-xs font-semibold text-black/60 mb-1.5 block">Sizes &amp; prices</label>
+            <label className="text-xs font-semibold text-black/60 mb-1.5 block">{t("Größen & Preise", "Sizes & prices")}</label>
             <div className="grid gap-2">
               {form.sizes.map((s, i) => (
                 <div key={i} className="grid grid-cols-[1fr_90px_90px_36px] gap-2 items-center">
                   <input
                     value={s.label}
                     onChange={(e) => setSize(i, { label: e.target.value })}
-                    placeholder="e.g. 500g / 1kg / Small"
+                    placeholder={t("z. B. 500g / 1kg / Klein", "e.g. 500g / 1kg / Small")}
                     className="input"
                   />
                   <input
@@ -226,7 +229,7 @@ function ProductModal({
                     step="0.01"
                     value={s.price}
                     onChange={(e) => setSize(i, { price: e.target.value })}
-                    placeholder="Price €"
+                    placeholder={t("Preis €", "Price €")}
                     className="input"
                   />
                   <input
@@ -234,32 +237,32 @@ function ProductModal({
                     step="0.01"
                     value={s.oldPrice ?? ""}
                     onChange={(e) => setSize(i, { oldPrice: e.target.value })}
-                    placeholder="Was € (opt.)"
+                    placeholder={t("Vorher € (opt.)", "Was € (opt.)")}
                     className="input"
                   />
-                  <button onClick={() => removeSize(i)} aria-label="Remove size" className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
+                  <button onClick={() => removeSize(i)} aria-label={t("Größe entfernen", "Remove size")} className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0">
                     <Trash2 size={14} />
                   </button>
                 </div>
               ))}
             </div>
             <button onClick={addSize} className="btn-outline mt-2">
-              <Plus size={13} /> Add another size
+              <Plus size={13} /> {t("Weitere Größe hinzufügen", "Add another size")}
             </button>
           </div>
 
           <label className="flex items-center gap-2 text-sm mt-1">
             <input type="checkbox" checked={form.active} onChange={(e) => setField("active", e.target.checked)} />
-            Visible in the shop
+            {t("Im Shop sichtbar", "Visible in the shop")}
           </label>
         </div>
 
         <div className="flex gap-2 mt-6">
           <button onClick={onClose} className="btn-outline flex-1 justify-center">
-            Cancel
+            {t("Abbrechen", "Cancel")}
           </button>
           <button onClick={() => onSave(form)} className="btn-primary flex-1 justify-center">
-            Save product
+            {t("Produkt speichern", "Save product")}
           </button>
         </div>
       </div>

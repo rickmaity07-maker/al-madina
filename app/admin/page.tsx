@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminShell from "./components/AdminShell";
 import { Check, ChevronRight, Copy, MapPin, Package, Phone, Store, Truck, Mail } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 type OrderItem = { id: string; name: string; sizeLabel: string | null; price: number; qty: number };
 type Order = {
@@ -23,12 +24,12 @@ type Order = {
   items: OrderItem[];
 };
 
-const TABS: { key: string; label: string }[] = [
-  { key: "ACTIVE", label: "Active" },
-  { key: "PLACED", label: "New" },
-  { key: "PACKED", label: "Packed" },
-  { key: "OUT_FOR_DELIVERY", label: "Out for delivery" },
-  { key: "DELIVERED", label: "Completed" },
+const TABS: { key: string; label: [string, string] }[] = [
+  { key: "ACTIVE", label: ["Aktiv", "Active"] },
+  { key: "PLACED", label: ["Neu", "New"] },
+  { key: "PACKED", label: ["Gepackt", "Packed"] },
+  { key: "OUT_FOR_DELIVERY", label: ["Unterwegs", "Out for delivery"] },
+  { key: "DELIVERED", label: ["Abgeschlossen", "Completed"] },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -38,7 +39,15 @@ const STATUS_STYLES: Record<string, string> = {
   DELIVERED: "bg-green-100 text-green-800",
 };
 
+const STATUS_LABEL: Record<string, [string, string]> = {
+  PLACED: ["Neu", "New"],
+  PACKED: ["Gepackt", "Packed"],
+  OUT_FOR_DELIVERY: ["Unterwegs", "Out for delivery"],
+  DELIVERED: ["Zugestellt", "Delivered"],
+};
+
 export default function AdminOrdersPage() {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [tab, setTab] = useState("ACTIVE");
   const [loading, setLoading] = useState(true);
@@ -79,43 +88,51 @@ export default function AdminOrdersPage() {
     <AdminShell>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-serif text-3xl">Orders</h1>
-          <p className="text-black/50 text-sm mt-1">Cash on delivery / pickup — no online payment is processed.</p>
+          <h1 className="font-serif text-3xl">{t("Bestellungen", "Orders")}</h1>
+          <p className="text-black/50 text-sm mt-1">{t("Barzahlung bei Lieferung/Abholung — es wird keine Online-Zahlung verarbeitet.", "Cash on delivery / pickup — no online payment is processed.")}</p>
         </div>
       </div>
 
       <div className="flex gap-2 mb-6 overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0 scroll-x-hide">
-        {TABS.map((t) => (
+        {TABS.map((tabDef) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tabDef.key}
+            onClick={() => setTab(tabDef.key)}
             className={`px-4 py-2 rounded-full text-sm font-medium border shrink-0 whitespace-nowrap ${
-              tab === t.key ? "bg-[#a12e3d] text-white border-[#a12e3d]" : "border-black/10 text-black/60 bg-white"
+              tab === tabDef.key ? "bg-[#a12e3d] text-white border-[#a12e3d]" : "border-black/10 text-black/60 bg-white"
             }`}
           >
-            {t.label}
-            {t.key !== "ACTIVE" && t.key !== "DELIVERED" && (
-              <span className="ml-1.5 text-xs opacity-70">{orders.filter((o) => o.status === t.key).length}</span>
+            {t(tabDef.label[0], tabDef.label[1])}
+            {tabDef.key !== "ACTIVE" && tabDef.key !== "DELIVERED" && (
+              <span className="ml-1.5 text-xs opacity-70">{orders.filter((o) => o.status === tabDef.key).length}</span>
             )}
           </button>
         ))}
       </div>
 
-      {loading && <div className="text-black/40 text-sm">Loading orders…</div>}
+      {loading && <div className="text-black/40 text-sm">{t("Bestellungen werden geladen…", "Loading orders…")}</div>}
       {!loading && filtered.length === 0 && (
-        <div className="bg-white rounded-2xl border border-black/5 p-12 text-center text-black/40">No orders here yet.</div>
+        <div className="bg-white rounded-2xl border border-black/5 p-12 text-center text-black/40">{t("Noch keine Bestellungen.", "No orders here yet.")}</div>
       )}
 
       <div className="grid gap-4">
         {filtered.map((order) => (
-          <OrderCard key={order.id} order={order} onAdvance={advanceStatus} />
+          <OrderCard key={order.id} order={order} onAdvance={advanceStatus} t={t} />
         ))}
       </div>
     </AdminShell>
   );
 }
 
-function OrderCard({ order, onAdvance }: { order: Order; onAdvance: (o: Order, status: string) => void }) {
+function OrderCard({
+  order,
+  onAdvance,
+  t,
+}: {
+  order: Order;
+  onAdvance: (o: Order, status: string) => void;
+  t: (de: string, en: string) => string;
+}) {
   const [copied, setCopied] = useState(false);
   const deliverUrl = typeof window !== "undefined" ? `${window.location.origin}/deliver/${order.deliveryToken}` : "";
 
@@ -126,6 +143,8 @@ function OrderCard({ order, onAdvance }: { order: Order; onAdvance: (o: Order, s
     });
   }
 
+  const statusLabel = STATUS_LABEL[order.status];
+
   return (
     <div className="bg-white rounded-2xl border border-black/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -133,18 +152,18 @@ function OrderCard({ order, onAdvance }: { order: Order; onAdvance: (o: Order, s
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-semibold">#{order.orderNumber}</span>
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[order.status]}`}>
-              {order.status.replace(/_/g, " ")}
+              {statusLabel ? t(statusLabel[0], statusLabel[1]) : order.status}
             </span>
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/5 text-black/60 flex items-center gap-1">
               {order.fulfillment === "PICKUP" ? <Store size={11} /> : <Truck size={11} />}
-              {order.fulfillment === "PICKUP" ? "Pickup" : "Delivery"}
+              {order.fulfillment === "PICKUP" ? t("Abholung", "Pickup") : t("Lieferung", "Delivery")}
             </span>
           </div>
           <div className="text-xs text-black/40 mt-1">{new Date(order.createdAt).toLocaleString()}</div>
         </div>
         <div className="text-right">
           <div className="text-xl font-serif font-medium">€{order.total.toFixed(2)}</div>
-          <div className="text-[11px] text-black/40">cash {order.fulfillment === "PICKUP" ? "on pickup" : "on delivery"}</div>
+          <div className="text-[11px] text-black/40">{order.fulfillment === "PICKUP" ? t("bar bei Abholung", "cash on pickup") : t("bar bei Lieferung", "cash on delivery")}</div>
         </div>
       </div>
 
@@ -179,32 +198,40 @@ function OrderCard({ order, onAdvance }: { order: Order; onAdvance: (o: Order, s
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-black/5">
         {order.status === "PLACED" && (
           <button onClick={() => onAdvance(order, "PACKED")} className="btn-primary">
-            <Package size={14} /> Mark packed <ChevronRight size={14} />
+            <Package size={14} /> {t("Als gepackt markieren", "Mark packed")} <ChevronRight size={14} />
           </button>
         )}
         {order.status === "PACKED" && order.fulfillment === "DELIVERY" && (
           <button onClick={() => onAdvance(order, "OUT_FOR_DELIVERY")} className="btn-primary">
-            <Truck size={14} /> Mark out for delivery <ChevronRight size={14} />
+            <Truck size={14} /> {t("Als unterwegs markieren", "Mark out for delivery")} <ChevronRight size={14} />
           </button>
         )}
         {order.status === "PACKED" && order.fulfillment === "PICKUP" && (
           <span className="text-xs text-black/50 bg-black/5 rounded-full px-3 py-2">
-            Ready for pickup — customer taps the pickup link, or you can mark received below.
+            {t("Bereit zur Abholung — der Kunde nutzt den Abholungslink, oder Sie markieren es unten manuell.", "Ready for pickup — customer taps the pickup link, or you can mark received below.")}
           </span>
         )}
         {(order.status === "OUT_FOR_DELIVERY" || (order.status === "PACKED" && order.fulfillment === "PICKUP")) && (
           <>
             <button onClick={copyLink} className="btn-outline">
-              <Copy size={14} /> {copied ? "Link copied!" : order.fulfillment === "PICKUP" ? "Copy pickup-confirm link" : "Copy delivery link"}
+              <Copy size={14} />{" "}
+              {copied
+                ? t("Link kopiert!", "Link copied!")
+                : order.fulfillment === "PICKUP"
+                  ? t("Abholungs-Link kopieren", "Copy pickup-confirm link")
+                  : t("Lieferlink kopieren", "Copy delivery link")}
             </button>
             <button onClick={() => onAdvance(order, "DELIVERED")} className="btn-outline">
-              <Check size={14} /> Mark {order.fulfillment === "PICKUP" ? "picked up" : "delivered"} (override)
+              <Check size={14} />{" "}
+              {order.fulfillment === "PICKUP"
+                ? t("Als abgeholt markieren (manuell)", "Mark picked up (override)")
+                : t("Als zugestellt markieren (manuell)", "Mark delivered (override)")}
             </button>
           </>
         )}
         {order.status === "DELIVERED" && (
           <span className="text-xs text-green-700 bg-green-50 rounded-full px-3 py-2 flex items-center gap-1">
-            <Check size={13} /> {order.fulfillment === "PICKUP" ? "Picked up" : "Delivered"}
+            <Check size={13} /> {order.fulfillment === "PICKUP" ? t("Abgeholt", "Picked up") : t("Zugestellt", "Delivered")}
           </span>
         )}
       </div>

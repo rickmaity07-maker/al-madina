@@ -11,21 +11,21 @@ import { getOrderById, setOrderStatus } from "@/lib/orders";
 // but an admin can also do it from the dashboard if needed.)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { id } = await params;
   const { status } = await req.json();
 
   if (!ORDER_STATUSES.includes(status)) {
-    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    return NextResponse.json({ error: "Ungültiger Status." }, { status: 400 });
   }
 
   const existing = await getOrderById(id);
-  if (!existing) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: "Bestellung nicht gefunden." }, { status: 404 });
 
   await setOrderStatus(id, status);
   const order = await getOrderById(id);
-  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!order) return NextResponse.json({ error: "Bestellung nicht gefunden." }, { status: 404 });
 
   broadcastOrderEvent({ type: "order_updated", orderId: order.id, status: order.status });
 

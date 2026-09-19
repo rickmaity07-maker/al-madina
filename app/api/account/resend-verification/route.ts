@@ -7,20 +7,20 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   const session = await getVerifiedCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const ip = clientIp(req);
   const { allowed } = rateLimit(`resend-verification:${session.userId}`, 3, 10 * 60_000);
   if (!allowed) {
-    return NextResponse.json({ error: "Please wait a bit before requesting another code." }, { status: 429 });
+    return NextResponse.json({ error: "Bitte warten Sie kurz, bevor Sie einen weiteren Code anfordern." }, { status: 429 });
   }
   // Also cap per-IP, independent of account, to slow down anyone cycling accounts.
   if (!rateLimit(`resend-verification-ip:${ip}`, 10, 10 * 60_000).allowed) {
-    return NextResponse.json({ error: "Please wait a bit before requesting another code." }, { status: 429 });
+    return NextResponse.json({ error: "Bitte warten Sie kurz, bevor Sie einen weiteren Code anfordern." }, { status: 429 });
   }
 
   if (await isEmailVerified(session.userId)) {
-    return NextResponse.json({ error: "This email is already verified." }, { status: 400 });
+    return NextResponse.json({ error: "Diese E-Mail ist bereits bestätigt." }, { status: 400 });
   }
 
   const user = await prisma.$queryRaw<{ full_name: string }[]>`

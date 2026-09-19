@@ -2,6 +2,7 @@
 
 import { Check, Package, Truck, ClipboardList } from "lucide-react";
 import { ORDER_STATUSES, OrderStatus } from "@/lib/order-utils";
+import { useLanguage } from "@/lib/i18n";
 
 type StatusEvent = { status: string; createdAt: string };
 export type TrackableOrder = {
@@ -21,14 +22,15 @@ const STEP_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
   DELIVERED: Check,
 };
 
-const STEP_LABEL: Record<string, string> = {
-  PLACED: "Order placed",
-  PACKED: "Packed",
-  OUT_FOR_DELIVERY: "Out for delivery",
-  DELIVERED: "Delivered",
+const STEP_LABEL: Record<string, [string, string]> = {
+  PLACED: ["Bestellt", "Order placed"],
+  PACKED: ["Gepackt", "Packed"],
+  OUT_FOR_DELIVERY: ["Unterwegs", "Out for delivery"],
+  DELIVERED: ["Zugestellt", "Delivered"],
 };
 
 export default function OrderTimeline({ order }: { order: TrackableOrder }) {
+  const { t } = useLanguage();
   // Pickup orders skip "out for delivery" — it doesn't apply.
   const steps: OrderStatus[] =
     order.fulfillment === "PICKUP" ? ORDER_STATUSES.filter((s): s is OrderStatus => s !== "OUT_FOR_DELIVERY") : [...ORDER_STATUSES];
@@ -45,6 +47,7 @@ export default function OrderTimeline({ order }: { order: TrackableOrder }) {
           const Icon = STEP_ICON[step] ?? Check;
           const done = i <= currentIdx;
           const time = timeFor(step);
+          const label = STEP_LABEL[step];
           return (
             <div key={step} style={{ flex: 1, textAlign: "center", position: "relative" }}>
               {i > 0 && (
@@ -78,7 +81,7 @@ export default function OrderTimeline({ order }: { order: TrackableOrder }) {
                 <Icon size={16} />
               </div>
               <div style={{ fontSize: 12, fontWeight: 600, color: done ? "#18201b" : "rgba(24,32,27,.4)" }}>
-                {STEP_LABEL[step] ?? step}
+                {label ? t(label[0], label[1]) : step}
               </div>
               {time && (
                 <small style={{ color: "rgba(24,32,27,.5)" }}>
@@ -98,7 +101,7 @@ export default function OrderTimeline({ order }: { order: TrackableOrder }) {
         ))}
       </ul>
       <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid var(--line)", paddingTop: 6 }}>
-        <span>Total (cash)</span>
+        <span>{t("Gesamt (bar)", "Total (cash)")}</span>
         <span>€{order.total.toFixed(2)}</span>
       </div>
     </div>

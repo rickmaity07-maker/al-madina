@@ -5,7 +5,7 @@ import { getOrdersByUserId } from "@/lib/orders";
 
 export async function GET() {
   const session = await getCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const orders = await getOrdersByUserId(session.userId);
   return NextResponse.json(orders);

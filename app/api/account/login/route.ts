@@ -22,14 +22,14 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const { allowed } = rateLimit(`account-login:${ip}`, 10, 60_000);
   if (!allowed) {
-    return NextResponse.json({ error: "Too many login attempts. Please try again in a minute." }, { status: 429 });
+    return NextResponse.json({ error: "Zu viele Anmeldeversuche. Bitte versuchen Sie es in einer Minute erneut." }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({}));
   const { email, password } = body as { email?: string; password?: string };
 
   if (!email || !password) {
-    return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    return NextResponse.json({ error: "E-Mail und Passwort sind erforderlich." }, { status: 400 });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
   const user = rows[0];
 
   if (!user) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: "Ungültige E-Mail oder ungültiges Passwort." }, { status: 401 });
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: "Ungültige E-Mail oder ungültiges Passwort." }, { status: 401 });
   }
 
   // Fold whatever they'd added to cart before logging in into their account cart.

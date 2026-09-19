@@ -73,7 +73,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] flex flex-col items-center py-12 px-4 md:px-8">
       <div className="w-full max-w-xl bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
         <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 24 }}>
-          <ArrowLeft size={16} /> Back to shop
+          <ArrowLeft size={16} /> Zurück zum Shop
         </Link>
 
         {product.image_url && (
@@ -91,8 +91,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <StarRating value={reviewStats.average} size={16} />
           <span style={{ fontSize: 14, color: "rgba(24,32,27,.65)" }}>
             {reviewStats.count > 0
-              ? `${reviewStats.average.toFixed(1)} · ${reviewStats.count} ${reviewStats.count === 1 ? "review" : "reviews"}`
-              : "No reviews yet"}
+              ? `${reviewStats.average.toFixed(1)} · ${reviewStats.count} ${reviewStats.count === 1 ? "Bewertung" : "Bewertungen"}`
+              : "Noch keine Bewertungen"}
           </span>
         </div>
 

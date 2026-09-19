@@ -8,7 +8,7 @@ import { slugify } from "@/lib/slug";
 // (simplest, most predictable way to keep sizes in sync with the admin form).
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const { id } = await params;
   const body = await req.json();
@@ -17,7 +17,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const existing = await prisma.$queryRaw<{ id: string; slug: string }[]>`
     select id, slug from products where id = ${id}::uuid
   `;
-  if (!existing[0]) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  if (!existing[0]) return NextResponse.json({ error: "Produkt nicht gefunden" }, { status: 404 });
 
   const categoryId = await resolveCategoryId(category);
 
@@ -47,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 // Admin only: delete a product.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const { id } = await params;
   await prisma.$executeRaw`delete from products where id = ${id}::uuid`.catch(() => null);

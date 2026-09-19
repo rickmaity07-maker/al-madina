@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { useLanguage } from "@/lib/i18n";
 
 export type Variant = {
   id: string;
@@ -15,6 +16,7 @@ export type Variant = {
 };
 
 export function VariantSelector({ variants }: { variants: Variant[] }) {
+  const { t } = useLanguage();
   const [selectedId, setSelectedId] = useState(variants[0]?.id);
   const [status, setStatus] = useState<"idle" | "adding" | "added" | "error">("idle");
 
@@ -67,17 +69,25 @@ export function VariantSelector({ variants }: { variants: Variant[] }) {
         </div>
         <button className="primary-btn" onClick={handleAddToCart} disabled={outOfStock || status === "adding"}>
           <Plus size={17} />
-          {outOfStock ? "Out of stock" : status === "added" ? "Added" : status === "adding" ? "Adding…" : "Add to basket"}
+          {outOfStock
+            ? t("Ausverkauft", "Out of stock")
+            : status === "added"
+              ? t("Hinzugefügt", "Added")
+              : status === "adding"
+                ? t("Wird hinzugefügt…", "Adding…")
+                : t("In den Warenkorb", "Add to basket")}
         </button>
       </div>
 
       {status === "error" && (
         <p style={{ color: "#b3261e", fontSize: 13, marginTop: -10, marginBottom: 16 }}>
-          Couldn't add that to your cart — try again.
+          {t("Konnte nicht zum Warenkorb hinzugefügt werden — bitte erneut versuchen.", "Couldn't add that to your cart — try again.")}
         </p>
       )}
       {selected.stock_quantity > 0 && selected.stock_quantity <= 5 && (
-        <p style={{ color: "#c79a3a", fontSize: 13, fontWeight: 700, marginTop: -10 }}>Only {selected.stock_quantity} left</p>
+        <p style={{ color: "#c79a3a", fontSize: 13, fontWeight: 700, marginTop: -10 }}>
+          {t(`Nur noch ${selected.stock_quantity} verfügbar`, `Only ${selected.stock_quantity} left`)}
+        </p>
       )}
     </>
   );

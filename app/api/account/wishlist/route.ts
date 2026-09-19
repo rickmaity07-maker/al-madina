@@ -15,7 +15,7 @@ type VariantRow = {
 // Customer only: list wishlisted products (with variants, so they can add straight to basket).
 export async function GET() {
   const session = await getCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const products = await prisma.$queryRaw<WishlistProductRow[]>`
     select p.id, p.name, p.slug, p.image_url as "image", c.name as "category"
@@ -54,10 +54,10 @@ export async function GET() {
 // Customer only: add a product to the wishlist.
 export async function POST(req: NextRequest) {
   const session = await getVerifiedCustomerSession();
-  if (!session) return NextResponse.json({ error: "Please log in to save items." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Bitte melden Sie sich an, um Artikel zu speichern." }, { status: 401 });
 
   const { productId } = await req.json().catch(() => ({}));
-  if (!productId) return NextResponse.json({ error: "productId is required." }, { status: 400 });
+  if (!productId) return NextResponse.json({ error: "productId ist erforderlich." }, { status: 400 });
 
   await prisma.$executeRaw`
     insert into wishlists (user_id, product_id)

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/lib/i18n";
 import {
   ArrowRight,
   Check,
@@ -100,8 +101,7 @@ export default function Home() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [language, setLanguage] = useState<"de" | "en">("de");
-  const t = (de: string, en: string) => (language === "de" ? de : en);
+  const { language, setLanguage, t } = useLanguage();
   const [sort, setSort] = useState<SortOption>("relevance");
   const [account, setAccount] = useState<Account | null>(null);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
@@ -796,6 +796,12 @@ export default function Home() {
                 <a href="https://www.facebook.com/" target="_blank" rel="noreferrer">
                   <Facebook size={15} /> Facebook
                 </a>
+              </div>
+              <div>
+                <b>{t("Rechtliches", "Legal")}</b>
+                <Link href="/impressum">Impressum</Link>
+                <Link href="/datenschutz">{t("Datenschutz", "Privacy Policy")}</Link>
+                <Link href="/cookie-einstellungen">{t("Cookie-Einstellungen", "Cookie Settings")}</Link>
               </div>
             </div>
           </div>

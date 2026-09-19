@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   const { variantId, quantity } = await req.json();
   if (!variantId || !quantity || quantity < 1) {
-    return NextResponse.json({ error: "variantId and a positive quantity are required." }, { status: 400 });
+    return NextResponse.json({ error: "variantId und eine positive Menge sind erforderlich." }, { status: 400 });
   }
 
   try {
@@ -81,7 +81,7 @@ export async function PATCH(req: NextRequest) {
 
   const { itemId, quantity } = await req.json();
   if (!itemId || quantity == null) {
-    return NextResponse.json({ error: "itemId and quantity are required." }, { status: 400 });
+    return NextResponse.json({ error: "itemId und Menge sind erforderlich." }, { status: 400 });
   }
 
   try {

@@ -25,13 +25,13 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const { allowed } = rateLimit(`admin-login:${ip}`, 10, 60_000);
   if (!allowed) {
-    return NextResponse.json({ error: "Too many login attempts. Please try again in a minute." }, { status: 429 });
+    return NextResponse.json({ error: "Zu viele Anmeldeversuche. Bitte versuchen Sie es in einer Minute erneut." }, { status: 429 });
   }
 
   const { username, password } = await req.json().catch(() => ({ username: "", password: "" }));
 
   if (!username || !password) {
-    return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
+    return NextResponse.json({ error: "Ungültiger Benutzername oder ungültiges Passwort." }, { status: 401 });
   }
 
   const normalizedEmail = username.trim().toLowerCase();
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   if (account) {
     const valid = await bcrypt.compare(password, account.passwordHash);
-    if (!valid) return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
+    if (!valid) return NextResponse.json({ error: "Ungültiger Benutzername oder ungültiges Passwort." }, { status: 401 });
 
     const token = signAdminToken({
       username: account.email,
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     !safeEqual(username, validUsername) ||
     !safeEqual(password, validPassword)
   ) {
-    return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
+    return NextResponse.json({ error: "Ungültiger Benutzername oder ungültiges Passwort." }, { status: 401 });
   }
 
   const token = signAdminToken({ username, role: "OWNER", adminId: null });

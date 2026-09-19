@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const { allowed } = rateLimit(`register:${ip}`, 5, 60_000);
   if (!allowed) {
-    return NextResponse.json({ error: "Too many attempts. Please try again in a minute." }, { status: 429 });
+    return NextResponse.json({ error: "Zu viele Versuche. Bitte versuchen Sie es in einer Minute erneut." }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -30,19 +30,19 @@ export async function POST(req: NextRequest) {
   };
 
   if (!name || !email || !password) {
-    return NextResponse.json({ error: "Name, email and password are required." }, { status: 400 });
+    return NextResponse.json({ error: "Name, E-Mail und Passwort sind erforderlich." }, { status: 400 });
   }
   if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    return NextResponse.json({ error: "Das Passwort muss mindestens 8 Zeichen lang sein." }, { status: 400 });
   }
   if (isDisposableEmail(email)) {
     return NextResponse.json(
-      { error: "Please use a permanent email address — temporary/disposable inboxes aren't accepted." },
+      { error: "Bitte verwenden Sie eine dauerhafte E-Mail-Adresse — temporäre Wegwerf-Adressen werden nicht akzeptiert." },
       { status: 400 }
     );
   }
   if (phone && !isPlausiblePhoneNumber(phone)) {
-    return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
+    return NextResponse.json({ error: "Bitte geben Sie eine gültige Telefonnummer ein." }, { status: 400 });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     select id from users where email = ${normalizedEmail} limit 1
   `;
   if (existing[0]) {
-    return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
+    return NextResponse.json({ error: "Ein Konto mit dieser E-Mail existiert bereits." }, { status: 409 });
   }
 
   const passwordHash = await bcrypt.hash(password, 10);

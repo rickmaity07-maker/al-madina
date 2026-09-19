@@ -26,7 +26,7 @@ type AddressRow = {
 
 export async function GET() {
   const session = await getCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const addresses = await prisma.$queryRaw<AddressRow[]>`
     select id, label, line1, line2, city, postal_code as "postalCode",
@@ -47,7 +47,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getVerifiedCustomerSession();
-  if (!session) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 
   const { label, line1, line2, city, postalCode, latitude, longitude, isDefault } = await req
     .json()
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   if (!label || !line1 || !city || !postalCode) {
     return NextResponse.json(
-      { error: "label, line1, city and postalCode are required." },
+      { error: "Bezeichnung, Straße, Stadt und Postleitzahl sind erforderlich." },
       { status: 400 }
     );
   }

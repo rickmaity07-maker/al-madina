@@ -10,7 +10,7 @@ type TeamAccount = { id: string; email: string; name: string; role: "OWNER" | "S
 
 export async function GET() {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const accounts = await prisma.$queryRaw<TeamAccount[]>`
     select u.id, u.email, u.full_name as "name", a.role, a.created_at as "createdAt"
@@ -23,17 +23,17 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const { name, email, password, role } = await req.json().catch(() => ({}));
   if (!name || !email || !password) {
-    return NextResponse.json({ error: "Name, email and password are required." }, { status: 400 });
+    return NextResponse.json({ error: "Name, E-Mail und Passwort sind erforderlich." }, { status: 400 });
   }
   if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    return NextResponse.json({ error: "Das Passwort muss mindestens 8 Zeichen lang sein." }, { status: 400 });
   }
   if (role !== "OWNER" && role !== "STAFF") {
-    return NextResponse.json({ error: "Role must be OWNER or STAFF." }, { status: 400 });
+    return NextResponse.json({ error: "Rolle muss OWNER oder STAFF sein." }, { status: 400 });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     select a.user_id from admin_users a join users u on u.id = a.user_id where u.email = ${normalizedEmail} limit 1
   `;
   if (existingAdmin[0]) {
-    return NextResponse.json({ error: "An admin account with this email already exists." }, { status: 409 });
+    return NextResponse.json({ error: "Ein Admin-Konto mit dieser E-Mail existiert bereits." }, { status: 409 });
   }
 
   // If they already have a customer account, grant admin on it (shared login) —

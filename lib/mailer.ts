@@ -71,10 +71,10 @@ function itemsTable(items: OrderItem[]) {
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
       <thead>
         <tr style="text-align:left;border-bottom:2px solid #a12e3d">
-          <th style="padding:6px 4px">Item</th>
-          <th style="padding:6px 4px">Size</th>
-          <th style="padding:6px 4px;text-align:center">Qty</th>
-          <th style="padding:6px 4px;text-align:right">Price</th>
+          <th style="padding:6px 4px">Artikel</th>
+          <th style="padding:6px 4px">Größe</th>
+          <th style="padding:6px 4px;text-align:center">Menge</th>
+          <th style="padding:6px 4px;text-align:right">Preis</th>
         </tr>
       </thead>
       <tbody>
@@ -99,14 +99,14 @@ function baseWrapper(title: string, bodyHtml: string) {
     <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #eee">
       <div style="background:linear-gradient(135deg,#a12e3d,#7a1a26);color:#fff;padding:20px 24px">
         <div style="font-size:20px;font-weight:bold;letter-spacing:-0.02em">Al-Madina Markt</div>
-        <div style="font-size:12px;opacity:.85;margin-top:2px">Halal Grocery · Schweinfurt</div>
+        <div style="font-size:12px;opacity:.85;margin-top:2px">Halal Lebensmittel · Schweinfurt</div>
       </div>
       <div style="padding:24px;color:#222">
         <h2 style="margin:0 0 12px;font-size:20px">${title}</h2>
         ${bodyHtml}
       </div>
       <div style="padding:16px 24px;background:#f8f7f3;color:#999;font-size:11px">
-        This is an automated message from al-madina-markt.de
+        Dies ist eine automatische Nachricht von al-madina-markt.de
       </div>
     </div>
   </div>`;
@@ -114,34 +114,34 @@ function baseWrapper(title: string, bodyHtml: string) {
 
 function fulfillmentLine(order: OrderWithItems) {
   return order.fulfillment === "PICKUP"
-    ? `<p><b>Pickup in store</b> — it will be packed and ready for you to collect from Al-Madina Markt.</p>`
-    : `<p><b>Home delivery</b> to: ${escapeHtml(order.address ?? "")}</p>`;
+    ? `<p><b>Abholung im Laden</b> — wir packen Ihre Bestellung, sie ist bei Al-Madina Markt zur Abholung bereit.</p>`
+    : `<p><b>Lieferung nach Hause</b> an: ${escapeHtml(order.address ?? "")}</p>`;
 }
 
 /** Email sent to the customer confirming their order. */
 export async function sendCustomerConfirmationEmail(order: OrderWithItems) {
   const transport = getTransport();
   const html = baseWrapper(
-    `Thank you, ${escapeHtml(order.customerName)}!`,
+    `Vielen Dank, ${escapeHtml(order.customerName)}!`,
     `
-    <p>We've received your order <b>#${escapeHtml(order.orderNumber)}</b>.</p>
+    <p>Wir haben Ihre Bestellung <b>#${escapeHtml(order.orderNumber)}</b> erhalten.</p>
     ${fulfillmentLine(order)}
     ${itemsTable(order.items)}
     <table style="width:100%;font-size:14px">
-      <tr><td>Subtotal</td><td style="text-align:right">${money(order.subtotal)}</td></tr>
-      <tr><td>${order.fulfillment === "PICKUP" ? "Pickup" : "Delivery"}</td><td style="text-align:right">${
-      order.deliveryFee === 0 ? "Free" : money(order.deliveryFee)
+      <tr><td>Zwischensumme</td><td style="text-align:right">${money(order.subtotal)}</td></tr>
+      <tr><td>${order.fulfillment === "PICKUP" ? "Abholung" : "Lieferung"}</td><td style="text-align:right">${
+      order.deliveryFee === 0 ? "Kostenlos" : money(order.deliveryFee)
     }</td></tr>
-      <tr style="font-weight:bold;font-size:16px"><td style="padding-top:8px">Total (Cash)</td><td style="text-align:right;padding-top:8px">${money(
+      <tr style="font-weight:bold;font-size:16px"><td style="padding-top:8px">Gesamt (bar)</td><td style="text-align:right;padding-top:8px">${money(
         order.total
       )}</td></tr>
     </table>
-    <p style="margin-top:16px">Payment is <b>cash on ${
-      order.fulfillment === "PICKUP" ? "pickup" : "delivery"
-    }</b> — please have the exact amount ready if possible.</p>
-    <p>We'll let you know as your order moves from packed → ${
-      order.fulfillment === "PICKUP" ? "ready for pickup" : "out for delivery"
-    }.</p>
+    <p style="margin-top:16px">Die Zahlung erfolgt <b>bar bei ${
+      order.fulfillment === "PICKUP" ? "Abholung" : "Lieferung"
+    }</b> — bitte halten Sie nach Möglichkeit den passenden Betrag bereit.</p>
+    <p>Wir informieren Sie, sobald Ihre Bestellung von „gepackt" zu „${
+      order.fulfillment === "PICKUP" ? "abholbereit" : "unterwegs"
+    }" wechselt.</p>
     `
   );
 
@@ -153,7 +153,7 @@ export async function sendCustomerConfirmationEmail(order: OrderWithItems) {
   await transport.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: order.customerEmail,
-    subject: `Your Al-Madina Markt order #${order.orderNumber}`,
+    subject: `Ihre Al-Madina Markt Bestellung #${order.orderNumber}`,
     html,
   });
   return { sent: true };
@@ -166,14 +166,14 @@ export async function sendStoreNotificationEmail(order: OrderWithItems) {
   const adminUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/admin`;
 
   const html = baseWrapper(
-    `New order #${escapeHtml(order.orderNumber)}`,
+    `Neue Bestellung #${escapeHtml(order.orderNumber)}`,
     `
     <p><b>${escapeHtml(order.customerName)}</b> · ${escapeHtml(order.customerPhone)} · ${escapeHtml(order.customerEmail)}</p>
     ${fulfillmentLine(order)}
-    ${order.notes ? `<p><b>Note:</b> ${escapeHtml(order.notes)}</p>` : ""}
+    ${order.notes ? `<p><b>Hinweis:</b> ${escapeHtml(order.notes)}</p>` : ""}
     ${itemsTable(order.items)}
-    <p style="font-size:16px;font-weight:bold">Total to collect (cash): ${money(order.total)}</p>
-    <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Open admin portal</a></p>
+    <p style="font-size:16px;font-weight:bold">Einzusammelnder Betrag (bar): ${money(order.total)}</p>
+    <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Admin-Portal öffnen</a></p>
     `
   );
 
@@ -185,7 +185,7 @@ export async function sendStoreNotificationEmail(order: OrderWithItems) {
   await transport.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: storeEmail,
-    subject: `🛒 New order #${order.orderNumber} — ${money(order.total)} cash`,
+    subject: `🛒 Neue Bestellung #${order.orderNumber} — ${money(order.total)} bar`,
     html,
   });
   return { sent: true };
@@ -195,17 +195,17 @@ export async function sendStoreNotificationEmail(order: OrderWithItems) {
 export async function sendStatusUpdateEmail(order: OrderWithItems) {
   const transport = getTransport();
   const statusText: Record<string, string> = {
-    PACKED: "Your order has been packed",
-    OUT_FOR_DELIVERY: "Your order is out for delivery",
-    DELIVERED: order.fulfillment === "PICKUP" ? "Your order was picked up" : "Your order was delivered",
+    PACKED: "Ihre Bestellung wurde gepackt",
+    OUT_FOR_DELIVERY: "Ihre Bestellung ist unterwegs",
+    DELIVERED: order.fulfillment === "PICKUP" ? "Ihre Bestellung wurde abgeholt" : "Ihre Bestellung wurde zugestellt",
   };
   const label = statusText[order.status];
   if (!label) return { sent: false, reason: "No email for this status" };
 
   const html = baseWrapper(
     label,
-    `<p>Order <b>#${escapeHtml(order.orderNumber)}</b> — total ${money(order.total)} (cash on ${
-      order.fulfillment === "PICKUP" ? "pickup" : "delivery"
+    `<p>Bestellung <b>#${escapeHtml(order.orderNumber)}</b> — Gesamt ${money(order.total)} (bar bei ${
+      order.fulfillment === "PICKUP" ? "Abholung" : "Lieferung"
     }).</p>`
   );
 
@@ -217,7 +217,7 @@ export async function sendStatusUpdateEmail(order: OrderWithItems) {
   await transport.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: order.customerEmail,
-    subject: `Order #${order.orderNumber}: ${label}`,
+    subject: `Bestellung #${order.orderNumber}: ${label}`,
     html,
   });
   return { sent: true };
@@ -232,13 +232,13 @@ export async function sendLowStockAlert(items: { productName: string; sizeLabel:
   if (items.length === 0) return { sent: false, reason: "Nothing to report" };
 
   const html = baseWrapper(
-    "Low stock alert",
+    "Niedriger Lagerbestand",
     `
-    <p>The following items are running low:</p>
+    <p>Die folgenden Artikel gehen zur Neige:</p>
     <ul style="font-size:14px">
-      ${items.map((i) => `<li><b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.sizeLabel)}) — ${i.stock} left</li>`).join("")}
+      ${items.map((i) => `<li><b>${escapeHtml(i.productName)}</b> (${escapeHtml(i.sizeLabel)}) — noch ${i.stock}</li>`).join("")}
     </ul>
-    <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Manage products</a></p>
+    <p><a href="${adminUrl}" style="display:inline-block;margin-top:12px;background:#a12e3d;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Produkte verwalten</a></p>
     `
   );
 
@@ -250,7 +250,7 @@ export async function sendLowStockAlert(items: { productName: string; sizeLabel:
   await transport.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: storeEmail,
-    subject: `⚠️ Low stock: ${items.map((i) => i.productName).join(", ")}`,
+    subject: `⚠️ Niedriger Bestand: ${items.map((i) => i.productName).join(", ")}`,
     html,
   });
   return { sent: true };
@@ -260,12 +260,12 @@ export async function sendLowStockAlert(items: { productName: string; sizeLabel:
 export async function sendVerificationEmail(email: string, name: string, code: string) {
   const transport = getTransport();
   const html = baseWrapper(
-    "Confirm your email",
+    "Bestätigen Sie Ihre E-Mail-Adresse",
     `
-    <p>Hi ${escapeHtml(name)}, use this code to confirm your email address:</p>
+    <p>Hallo ${escapeHtml(name)}, verwenden Sie diesen Code, um Ihre E-Mail-Adresse zu bestätigen:</p>
     <p style="font-size:32px;font-weight:bold;letter-spacing:6px;text-align:center;margin:20px 0;color:#a12e3d">${escapeHtml(code)}</p>
-    <p style="font-size:12px;color:#8a918c">This code expires in 15 minutes. You need to confirm your email before you can place an order.</p>
-    <p style="font-size:12px;color:#8a918c">If you didn't try to create an account, you can ignore this email.</p>
+    <p style="font-size:12px;color:#8a918c">Dieser Code läuft in 15 Minuten ab. Sie müssen Ihre E-Mail bestätigen, bevor Sie eine Bestellung aufgeben können.</p>
+    <p style="font-size:12px;color:#8a918c">Falls Sie kein Konto erstellt haben, können Sie diese E-Mail ignorieren.</p>
     `
   );
 
@@ -277,7 +277,7 @@ export async function sendVerificationEmail(email: string, name: string, code: s
   await transport.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: email,
-    subject: `Your verification code: ${code}`,
+    subject: `Ihr Bestätigungscode: ${code}`,
     html,
   });
   return { sent: true };

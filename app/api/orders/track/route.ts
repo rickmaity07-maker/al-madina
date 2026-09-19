@@ -7,18 +7,18 @@ export async function POST(req: NextRequest) {
   const ip = clientIp(req);
   const { allowed } = rateLimit(`order-track:${ip}`, 15, 60_000);
   if (!allowed) {
-    return NextResponse.json({ error: "Too many attempts. Please try again in a minute." }, { status: 429 });
+    return NextResponse.json({ error: "Zu viele Versuche. Bitte versuchen Sie es in einer Minute erneut." }, { status: 429 });
   }
 
   const { orderNumber, email } = await req.json().catch(() => ({}));
   if (!orderNumber || !email) {
-    return NextResponse.json({ error: "Order number and email are required." }, { status: 400 });
+    return NextResponse.json({ error: "Bestellnummer und E-Mail sind erforderlich." }, { status: 400 });
   }
 
   const order = await getOrderByNumber(orderNumber.trim().toUpperCase());
 
   if (!order || order.customerEmail.toLowerCase() !== email.trim().toLowerCase()) {
-    return NextResponse.json({ error: "No order found with that order number and email." }, { status: 404 });
+    return NextResponse.json({ error: "Keine Bestellung mit dieser Bestellnummer und E-Mail gefunden." }, { status: 404 });
   }
 
   return NextResponse.json(order);

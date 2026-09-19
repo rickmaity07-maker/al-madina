@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Lock, ShoppingBag } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 export default function AdminLoginPage() {
+  const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -13,27 +15,26 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Login failed.");
+        setError(data.error || t("Anmeldung fehlgeschlagen.", "Login failed."));
         setLoading(false);
         return;
       }
-      
-      // Success! Force a hard redirect to ensure the browser sends the new auth cookie 
+
+      // Success! Force a hard redirect to ensure the browser sends the new auth cookie
       // to the Next.js middleware protecting the /admin routes.
       window.location.href = "/admin";
-      
-    } catch (err) {
-      setError("Could not reach the server.");
+    } catch {
+      setError(t("Server konnte nicht erreicht werden.", "Could not reach the server."));
       setLoading(false);
     }
   }
@@ -45,11 +46,11 @@ export default function AdminLoginPage() {
           <img src="/logo.png" alt="Al-Madina" className="w-12 h-14 object-contain" />
           <div>
             <div className="font-serif text-lg font-medium">Al-Madina Admin</div>
-            <div className="text-xs text-black/50">Store management portal</div>
+            <div className="text-xs text-black/50">{t("Store-Verwaltungsportal", "Store management portal")}</div>
           </div>
         </div>
 
-        <label className="block text-xs font-semibold text-black/60 mb-1">Username</label>
+        <label className="block text-xs font-semibold text-black/60 mb-1">{t("Benutzername", "Username")}</label>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -58,7 +59,7 @@ export default function AdminLoginPage() {
           required
         />
 
-        <label className="block text-xs font-semibold text-black/60 mb-1">Password</label>
+        <label className="block text-xs font-semibold text-black/60 mb-1">{t("Passwort", "Password")}</label>
         <input
           type="password"
           value={password}
@@ -73,11 +74,11 @@ export default function AdminLoginPage() {
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 rounded-lg bg-linear-to-br from-[#a12e3d] to-[#7a1a26] text-white font-semibold py-2.5 text-sm disabled:opacity-60"
         >
-          <Lock size={15} /> {loading ? "Signing in…" : "Sign in"}
+          <Lock size={15} /> {loading ? t("Anmeldung läuft…", "Signing in…") : t("Anmelden", "Sign in")}
         </button>
 
         <a href="/" className="mt-5 flex items-center justify-center gap-2 text-xs text-black/40 hover:text-black/70">
-          <ShoppingBag size={13} /> Back to storefront
+          <ShoppingBag size={13} /> {t("Zurück zum Shop", "Back to storefront")}
         </a>
       </form>
     </main>

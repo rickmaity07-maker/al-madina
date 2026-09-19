@@ -11,7 +11,7 @@ import { getOrderByToken, setOrderStatus } from "@/lib/orders";
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const order = await getOrderByToken(token);
-  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!order) return NextResponse.json({ error: "Bestellung nicht gefunden." }, { status: 404 });
   return NextResponse.json(order);
 }
 
@@ -19,11 +19,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const existing = await getOrderByToken(token);
-  if (!existing) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: "Bestellung nicht gefunden." }, { status: 404 });
 
   await setOrderStatus(existing.id, "DELIVERED");
   const order = await getOrderByToken(token);
-  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  if (!order) return NextResponse.json({ error: "Bestellung nicht gefunden." }, { status: 404 });
 
   broadcastOrderEvent({ type: "order_updated", orderId: order.id, status: order.status });
 

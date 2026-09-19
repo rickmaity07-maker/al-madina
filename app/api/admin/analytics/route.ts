@@ -14,7 +14,7 @@ type StatusCountRow = { status: string; count: bigint };
 
 export async function GET() {
   const session = await getAdminSession();
-  if (!isOwner(session)) return NextResponse.json({ error: "Owner access required." }, { status: 403 });
+  if (!isOwner(session)) return NextResponse.json({ error: "Inhaberzugriff erforderlich." }, { status: 403 });
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

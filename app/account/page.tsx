@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, LogOut, Package, User as UserIcon, Heart, MapPin, RefreshCw, Plus, Trash2, ShieldCheck, MailWarning, MailCheck } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 type Account = { id: string; name: string; email: string; phone: string | null; role: "OWNER" | "STAFF" | null; emailVerified: boolean };
 type OrderItem = { id: string; name: string; sizeLabel: string | null; price: number; qty: number };
@@ -18,17 +19,18 @@ type Order = {
 type WishlistProduct = { id: string; name: string; slug: string; image: string | null; category: string | null };
 type Address = { id: string; label: string; line1: string; city: string; postalCode: string; isDefault: boolean };
 
-const STATUS_LABEL: Record<string, string> = {
-  PLACED: "Placed",
-  PACKED: "Packed",
-  OUT_FOR_DELIVERY: "Out for delivery",
-  DELIVERED: "Delivered",
+const STATUS_LABEL: Record<string, [string, string]> = {
+  PLACED: ["Bestellt", "Placed"],
+  PACKED: ["Gepackt", "Packed"],
+  OUT_FOR_DELIVERY: ["Unterwegs", "Out for delivery"],
+  DELIVERED: ["Zugestellt", "Delivered"],
 };
 
 const muted = { color: "rgba(24,32,27,.6)" };
 const mutedLight = { color: "rgba(24,32,27,.45)" };
 
 export default function AccountPage() {
+  const { t } = useLanguage();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [orders, setOrders] = useState<Order[]>([]);
   const [wishlist, setWishlist] = useState<WishlistProduct[]>([]);
@@ -102,7 +104,7 @@ export default function AccountPage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setAddressError(data.error || "Couldn't save that address.");
+      setAddressError(data.error || t("Adresse konnte nicht gespeichert werden.", "Couldn't save that address."));
       return;
     }
     setNewLabel("");
@@ -136,13 +138,13 @@ export default function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Something went wrong.");
+        setError(data.error || t("Etwas ist schiefgelaufen.", "Something went wrong."));
         setSubmitting(false);
         return;
       }
       setAccount(data);
     } catch {
-      setError("Connection error. Please try again.");
+      setError(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again."));
     }
     setSubmitting(false);
   }
@@ -165,14 +167,14 @@ export default function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setVerifyError(data.error || "Could not verify that code.");
+        setVerifyError(data.error || t("Dieser Code konnte nicht bestätigt werden.", "Could not verify that code."));
         setVerifying(false);
         return;
       }
       setVerifyCode("");
       loadAccount();
     } catch {
-      setVerifyError("Connection error. Please try again.");
+      setVerifyError(t("Verbindungsfehler. Bitte versuchen Sie es erneut.", "Connection error. Please try again."));
     }
     setVerifying(false);
   }
@@ -183,10 +185,10 @@ export default function AccountPage() {
     const res = await fetch("/api/account/resend-verification", { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      setVerifyError(data.error || "Could not resend the code.");
+      setVerifyError(data.error || t("Der Code konnte nicht erneut gesendet werden.", "Could not resend the code."));
       return;
     }
-    setResendMessage("A new code was sent to your email.");
+    setResendMessage(t("Ein neuer Code wurde an Ihre E-Mail gesendet.", "A new code was sent to your email."));
     setResendCooldown(60);
     const timer = setInterval(() => {
       setResendCooldown((c) => {
@@ -203,17 +205,19 @@ export default function AccountPage() {
     <main className="min-h-screen bg-[#f8f7f3] text-[#18201b] py-10 px-4 md:px-8">
       <div className="w-full max-w-3xl mx-auto">
         <Link href="/" className="text-btn" style={{ display: "inline-flex", marginBottom: 32 }}>
-          <ArrowLeft size={16} /> Back to shop
+          <ArrowLeft size={16} /> {t("Zurück zum Shop", "Back to shop")}
         </Link>
 
-        {account === undefined && <p style={muted}>Loading…</p>}
+        {account === undefined && <p style={muted}>{t("Lädt…", "Loading…")}</p>}
 
         {account === null && (
           <div className="w-full max-w-md mx-auto bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-black/5">
             <span className="eyebrow" style={{ display: "block", marginBottom: 4 }}>
-              Account
+              {t("Konto", "Account")}
             </span>
-            <h1 style={{ fontSize: 30, margin: "8px 0 20px" }}>{mode === "login" ? "Sign in" : "Create an account"}</h1>
+            <h1 style={{ fontSize: 30, margin: "8px 0 20px" }}>
+              {mode === "login" ? t("Anmelden", "Sign in") : t("Konto erstellen", "Create an account")}
+            </h1>
 
             <div className="size-row" style={{ margin: "0 0 20px" }}>
               <button
@@ -222,7 +226,7 @@ export default function AccountPage() {
                 style={{ flex: 1, padding: "9px 0", fontSize: 12 }}
                 onClick={() => setMode("login")}
               >
-                Sign in
+                {t("Anmelden", "Sign in")}
               </button>
               <button
                 type="button"
@@ -230,28 +234,28 @@ export default function AccountPage() {
                 style={{ flex: 1, padding: "9px 0", fontSize: 12 }}
                 onClick={() => setMode("register")}
               >
-                Register
+                {t("Registrieren", "Register")}
               </button>
             </div>
 
             <form onSubmit={submit} className="checkout-fields">
               {mode === "register" && (
-                <input required placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+                <input required placeholder={t("Vollständiger Name", "Full name")} value={name} onChange={(e) => setName(e.target.value)} />
               )}
               <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
               {mode === "register" && (
-                <input placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <input placeholder={t("Telefon (optional)", "Phone (optional)")} value={phone} onChange={(e) => setPhone(e.target.value)} />
               )}
               <input
                 required
                 type="password"
-                placeholder={mode === "register" ? "Password (min. 8 characters)" : "Password"}
+                placeholder={mode === "register" ? t("Passwort (mind. 8 Zeichen)", "Password (min. 8 characters)") : t("Passwort", "Password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               {error && <div className="checkout-error">{error}</div>}
               <button className="primary-btn full" style={{ marginTop: 4 }} disabled={submitting}>
-                {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
+                {submitting ? t("Bitte warten…", "Please wait…") : mode === "login" ? t("Anmelden", "Sign in") : t("Konto erstellen", "Create account")}
               </button>
             </form>
           </div>
@@ -285,7 +289,7 @@ export default function AccountPage() {
                   </Link>
                 )}
                 <button className="text-btn" onClick={logout} style={{ fontSize: 13 }}>
-                  <LogOut size={16} /> Log out
+                  <LogOut size={16} /> {t("Abmelden", "Log out")}
                 </button>
               </div>
             </div>
@@ -293,7 +297,7 @@ export default function AccountPage() {
             {/* Email verification */}
             {account.emailVerified ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--green)" }}>
-                <MailCheck size={16} /> Email verified
+                <MailCheck size={16} /> {t("E-Mail bestätigt", "Email verified")}
               </div>
             ) : (
               <div
@@ -301,18 +305,20 @@ export default function AccountPage() {
                 style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700 }}>
-                  <MailWarning size={18} color="#c79a3a" /> Confirm your email to place orders
+                  <MailWarning size={18} color="#c79a3a" /> {t("Bestätigen Sie Ihre E-Mail, um Bestellungen aufzugeben", "Confirm your email to place orders")}
                 </div>
                 <p style={{ fontSize: 13, ...muted }}>
-                  We sent a 6-digit code to <b>{account.email}</b>. Enter it below — you can browse and save items
-                  to your basket without this, but you'll need to confirm your email before checking out.
+                  {t(
+                    `Wir haben einen 6-stelligen Code an ${account.email} gesendet. Geben Sie ihn unten ein — Sie können ohne Bestätigung stöbern und Artikel merken, benötigen sie aber zum Bestellen.`,
+                    `We sent a 6-digit code to ${account.email}. Enter it below — you can browse and save items to your basket without this, but you'll need to confirm your email before checking out.`
+                  )}
                 </p>
                 <form onSubmit={submitVerifyCode} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <input
                     required
                     inputMode="numeric"
                     maxLength={6}
-                    placeholder="6-digit code"
+                    placeholder={t("6-stelliger Code", "6-digit code")}
                     value={verifyCode}
                     onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
                     style={{
@@ -325,7 +331,7 @@ export default function AccountPage() {
                     }}
                   />
                   <button className="primary-btn" disabled={verifying || verifyCode.length !== 6}>
-                    {verifying ? "Checking…" : "Verify"}
+                    {verifying ? t("Wird geprüft…", "Checking…") : t("Bestätigen", "Verify")}
                   </button>
                   <button
                     type="button"
@@ -334,7 +340,7 @@ export default function AccountPage() {
                     disabled={resendCooldown > 0}
                     style={{ fontSize: 13 }}
                   >
-                    {resendCooldown > 0 ? `Resend code (${resendCooldown}s)` : "Resend code"}
+                    {resendCooldown > 0 ? t(`Code erneut senden (${resendCooldown}s)`, `Resend code (${resendCooldown}s)`) : t("Code erneut senden", "Resend code")}
                   </button>
                 </form>
                 {verifyError && <div className="checkout-error">{verifyError}</div>}
@@ -345,10 +351,10 @@ export default function AccountPage() {
             {/* Orders */}
             <section>
               <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
-                <Package size={18} /> Order history
+                <Package size={18} /> {t("Bestellverlauf", "Order history")}
               </h2>
               {orders.length === 0 ? (
-                <p style={muted}>No orders yet — your placed orders will show up here.</p>
+                <p style={muted}>{t("Noch keine Bestellungen — Ihre Bestellungen erscheinen hier.", "No orders yet — your placed orders will show up here.")}</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {orders.map((o) => (
@@ -371,11 +377,11 @@ export default function AccountPage() {
                             borderRadius: 999,
                           }}
                         >
-                          {STATUS_LABEL[o.status] ?? o.status}
+                          {STATUS_LABEL[o.status] ? t(STATUS_LABEL[o.status][0], STATUS_LABEL[o.status][1]) : o.status}
                         </span>
                       </div>
                       <small style={muted}>
-                        {new Date(o.createdAt).toLocaleDateString()} · {o.fulfillment === "DELIVERY" ? "Delivery" : "Pickup"}
+                        {new Date(o.createdAt).toLocaleDateString()} · {o.fulfillment === "DELIVERY" ? t("Lieferung", "Delivery") : t("Abholung", "Pickup")}
                       </small>
                       <ul style={{ fontSize: 13, marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                         {o.items.map((it) => (
@@ -395,9 +401,11 @@ export default function AccountPage() {
                           marginTop: 8,
                         }}
                       >
-                        <span>Total (cash) · €{o.total.toFixed(2)}</span>
+                        <span>
+                          {t("Gesamt (bar)", "Total (cash)")} · €{o.total.toFixed(2)}
+                        </span>
                         <Link href={`/?reorder=${o.id}`} className="text-btn" style={{ fontSize: 13, padding: 0 }}>
-                          <RefreshCw size={14} /> Reorder
+                          <RefreshCw size={14} /> {t("Erneut bestellen", "Reorder")}
                         </Link>
                       </div>
                     </div>
@@ -409,10 +417,10 @@ export default function AccountPage() {
             {/* Wishlist */}
             <section>
               <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
-                <Heart size={18} /> Wishlist
+                <Heart size={18} /> {t("Wunschliste", "Wishlist")}
               </h2>
               {wishlist.length === 0 ? (
-                <p style={muted}>Items you save with the heart icon on the shop page will show up here.</p>
+                <p style={muted}>{t("Artikel, die Sie mit dem Herz-Symbol merken, erscheinen hier.", "Items you save with the heart icon on the shop page will show up here.")}</p>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 16 }}>
                   {wishlist.map((p) => (
@@ -434,7 +442,7 @@ export default function AccountPage() {
                       </Link>
                       <button
                         onClick={() => removeWishlistItem(p.id)}
-                        aria-label="Remove"
+                        aria-label={t("Entfernen", "Remove")}
                         className="heart liked"
                         style={{ position: "absolute", top: 8, right: 8, width: 30, height: 30 }}
                       >
@@ -449,7 +457,7 @@ export default function AccountPage() {
             {/* Addresses */}
             <section>
               <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 18, marginBottom: 16 }}>
-                <MapPin size={18} /> Saved addresses
+                <MapPin size={18} /> {t("Gespeicherte Adressen", "Saved addresses")}
               </h2>
               {addresses.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 20 }}>
@@ -461,12 +469,12 @@ export default function AccountPage() {
                     >
                       <div>
                         <span style={{ fontWeight: 700 }}>{a.label}</span>
-                        {a.isDefault && <small style={{ ...mutedLight, marginLeft: 6 }}>(default)</small>}
+                        {a.isDefault && <small style={{ ...mutedLight, marginLeft: 6 }}>({t("Standard", "default")})</small>}
                         <p style={{ fontSize: 13, marginTop: 4, ...muted }}>
                           {a.line1}, {a.postalCode} {a.city}
                         </p>
                       </div>
-                      <button onClick={() => removeAddress(a.id)} className="heart" style={{ position: "static", width: 30, height: 30 }} aria-label="Remove address">
+                      <button onClick={() => removeAddress(a.id)} className="heart" style={{ position: "static", width: 30, height: 30 }} aria-label={t("Adresse entfernen", "Remove address")}>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -480,21 +488,26 @@ export default function AccountPage() {
                 style={{ padding: 16, gridTemplateColumns: "1fr 1fr", maxWidth: 560 }}
               >
                 <input
-                  placeholder="Label (e.g. Home)"
+                  placeholder={t("Bezeichnung (z. B. Zuhause)", "Label (e.g. Home)")}
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   style={{ gridColumn: "1 / -1" }}
                 />
-                <input placeholder="Street and house number" value={newLine1} onChange={(e) => setNewLine1(e.target.value)} style={{ gridColumn: "1 / -1" }} />
-                <input placeholder="Postal code" value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value)} />
-                <input placeholder="City" value={newCity} onChange={(e) => setNewCity(e.target.value)} />
+                <input
+                  placeholder={t("Straße und Hausnummer", "Street and house number")}
+                  value={newLine1}
+                  onChange={(e) => setNewLine1(e.target.value)}
+                  style={{ gridColumn: "1 / -1" }}
+                />
+                <input placeholder={t("Postleitzahl", "Postal code")} value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value)} />
+                <input placeholder={t("Stadt", "City")} value={newCity} onChange={(e) => setNewCity(e.target.value)} />
                 {addressError && (
                   <div className="checkout-error" style={{ gridColumn: "1 / -1" }}>
                     {addressError}
                   </div>
                 )}
                 <button className="primary-btn" style={{ gridColumn: "1 / -1", justifyContent: "center" }}>
-                  <Plus size={16} /> Add address
+                  <Plus size={16} /> {t("Adresse hinzufügen", "Add address")}
                 </button>
               </form>
             </section>
