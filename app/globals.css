@@ -23,7 +23,7 @@
 .nav-extra{display:flex;align-items:center;gap:10px}
 .nav-toggle{display:none;border:1px solid var(--line);background:white;width:40px;height:40px;border-radius:50%;align-items:center;justify-content:center;flex:none}
 .mobile-nav-panel{margin-left:auto;width:min(320px,82vw);height:100%;background:#fff;padding:22px;display:flex;flex-direction:column;gap:2px;box-shadow:-20px 0 60px rgba(0,0,0,.15);animation:drawerIn .42s cubic-bezier(.16,1,.3,1) both;overflow-y:auto}
-.mobile-nav-panel a,.mobile-nav-panel button{display:flex;align-items:center;gap:10px;padding:13px 6px;font-size:14px;font-weight:600;color:var(--ink);border-radius:10px;width:100%;text-align:left}
+.mobile-nav-panel a,.mobile-nav-panel button:not(.icon-btn){display:flex;align-items:center;gap:10px;padding:13px 6px;font-size:14px;font-weight:600;color:var(--ink);border-radius:10px;width:100%;text-align:left}
 .mobile-nav-panel a:hover,.mobile-nav-panel button:hover{background:#f6f6f4}
 .mobile-nav-divider{height:1px;background:var(--line);margin:10px 0}
 .scroll-x-hide{scrollbar-width:none}
