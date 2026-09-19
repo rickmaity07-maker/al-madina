@@ -84,12 +84,12 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-6 overflow-x-auto -mx-4 px-4 lg:mx-0 lg:px-0 scroll-x-hide">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium border ${
+            className={`px-4 py-2 rounded-full text-sm font-medium border shrink-0 whitespace-nowrap ${
               tab === t.key ? "bg-[#a12e3d] text-white border-[#a12e3d]" : "border-black/10 text-black/60 bg-white"
             }`}
           >

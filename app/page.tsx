@@ -23,6 +23,7 @@ import {
   Facebook,
   User,
   ArrowUpDown,
+  Menu,
 } from "lucide-react";
 
 const MAP_URL = "https://www.google.com/maps/search/?api=1&query=Al-Madina%20Markt%2C%20Landwehrstra%C3%9Fe%2012%2C%2097421%20Schweinfurt%2C%20Germany";
@@ -93,6 +94,7 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [liked, setLiked] = useState<string[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [language, setLanguage] = useState<"de" | "en">("de");
@@ -351,26 +353,77 @@ export default function Home() {
           </div>
 
           <div className="nav-right">
-            <button onClick={() => setLanguage(language === "de" ? "en" : "de")} className="language-btn" aria-label={t("Sprache wechseln", "Change language")}>
-              {language === "de" ? "English" : "Deutsch"}
-            </button>
-            <a className="icon-btn hidden sm:flex" href={`tel:${PHONE.replace(/\s/g, "")}`} aria-label={t("Al-Madina anrufen", "Call Al-Madina")}>
-              <Phone size={19} />
-            </a>
-            <a className="icon-btn" href="/track" aria-label={t("Bestellung verfolgen", "Track order")} title={t("Bestellung verfolgen", "Track order")}>
-              <Truck size={19} />
-            </a>
-            <a className="icon-btn" href="/account" aria-label={t("Mein Konto", "My account")} title={account ? account.name : t("Anmelden", "Sign in")}>
-              <User size={19} />
-            </a>
+            <div className="nav-extra">
+              <button onClick={() => setLanguage(language === "de" ? "en" : "de")} className="language-btn" aria-label={t("Sprache wechseln", "Change language")}>
+                {language === "de" ? "English" : "Deutsch"}
+              </button>
+              <a className="icon-btn hidden sm:flex" href={`tel:${PHONE.replace(/\s/g, "")}`} aria-label={t("Al-Madina anrufen", "Call Al-Madina")}>
+                <Phone size={19} />
+              </a>
+              <a className="icon-btn" href="/track" aria-label={t("Bestellung verfolgen", "Track order")} title={t("Bestellung verfolgen", "Track order")}>
+                <Truck size={19} />
+              </a>
+              <a className="icon-btn" href="/account" aria-label={t("Mein Konto", "My account")} title={account ? account.name : t("Anmelden", "Sign in")}>
+                <User size={19} />
+              </a>
+            </div>
             <button className="cart-btn" onClick={() => setCartOpen(true)} aria-label="Open basket">
               <ShoppingBag size={19} />
               <span>{t("Warenkorb", "Basket")}</span>
               <i>{cartCount}</i>
             </button>
+            <button className="nav-toggle" onClick={() => setMobileNavOpen(true)} aria-label={t("Menü öffnen", "Open menu")}>
+              <Menu size={19} />
+            </button>
           </div>
         </div>
       </header>
+
+      {mobileNavOpen && (
+        <div className="drawer-backdrop" onClick={() => setMobileNavOpen(false)}>
+          <aside className="mobile-nav-panel" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <span className="header-logo-text">
+                <b style={{ fontSize: 18 }}>al-madina</b>
+              </span>
+              <button onClick={() => setMobileNavOpen(false)} className="icon-btn" aria-label={t("Menü schließen", "Close menu")}>
+                <X size={18} />
+              </button>
+            </div>
+            <a href="#shop" onClick={() => setMobileNavOpen(false)}>
+              Shop
+            </a>
+            <a href="#fresh" onClick={() => setMobileNavOpen(false)}>
+              {t("Täglich frisch", "Fresh daily")}
+            </a>
+            <a href="#story" onClick={() => setMobileNavOpen(false)}>
+              {t("Unsere Geschichte", "Our story")}
+            </a>
+            <a href="#visit" onClick={() => setMobileNavOpen(false)}>
+              {t("Besuchen Sie uns", "Visit us")}
+            </a>
+            <div className="mobile-nav-divider" />
+            <a href="/track" onClick={() => setMobileNavOpen(false)}>
+              <Truck size={17} /> {t("Bestellung verfolgen", "Track order")}
+            </a>
+            <a href="/account" onClick={() => setMobileNavOpen(false)}>
+              <User size={17} /> {account ? account.name : t("Anmelden", "Sign in")}
+            </a>
+            <a href={`tel:${PHONE.replace(/\s/g, "")}`} onClick={() => setMobileNavOpen(false)}>
+              <Phone size={17} /> {PHONE}
+            </a>
+            <div className="mobile-nav-divider" />
+            <button
+              onClick={() => {
+                setLanguage(language === "de" ? "en" : "de");
+                setMobileNavOpen(false);
+              }}
+            >
+              {language === "de" ? "English" : "Deutsch"}
+            </button>
+          </aside>
+        </div>
+      )}
 
       <section id="top" className="hero reveal mx-auto grid max-w-7xl gap-6 px-5 pb-8 pt-6 lg:grid-cols-[1.08fr_.92fr] lg:px-8 lg:pt-10">
         <div className="hero-copy">
