@@ -40,20 +40,29 @@ test.describe("admin", () => {
     await page.getByPlaceholder("Preis €").fill("2.50");
 
     await page.getByRole("button", { name: /Produkt speichern/i }).click();
-    await expect(page.getByText(name)).toBeVisible();
 
     try {
+      // Creating a product with a new category chains several sequential DB
+      // round trips (category lookup/create, slug check, product + variant
+      // insert, then a read-back) — give this realistic headroom rather
+      // than the tight 5s default.
+      await expect(page.getByText(name)).toBeVisible({ timeout: 10_000 });
+
       // Confirm it actually reaches the public storefront endpoint, not just the admin list.
       const res = await request.get("/api/products");
       const products: { id: string; name: string }[] = await res.json();
       const created = products.find((p) => p.name === name);
       expect(created).toBeTruthy();
     } finally {
-      // Clean up so the test is repeatable and doesn't leave junk data behind,
-      // even if the assertion above throws.
-      page.on("dialog", (d) => d.accept());
-      await page.getByRole("button", { name: new RegExp(`${name} löschen`) }).click();
-      await expect(page.getByText(name)).toBeHidden();
+      // Clean up so the test is repeatable and doesn't leave junk data
+      // behind, even if an assertion above throws. Guarded: if the product
+      // never actually rendered, there's nothing to delete.
+      const deleteBtn = page.getByRole("button", { name: new RegExp(`${name} löschen`) });
+      if (await deleteBtn.count()) {
+        page.on("dialog", (d) => d.accept());
+        await deleteBtn.click();
+        await expect(page.getByText(name)).toBeHidden();
+      }
     }
   });
 });

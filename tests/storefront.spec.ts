@@ -18,18 +18,22 @@ test("language toggle switches to English and persists across navigation", async
   await expect(page.getByText("Track your order")).toBeVisible();
 });
 
+// Both tests below target a stable seed-catalog product by name rather than
+// the positionally-"first" card. The grid sorts by created_at desc, and the
+// admin product-CRUD test (tests/admin.spec.ts) creates and deletes its own
+// product concurrently — that transient product can briefly become "first"
+// and then get deleted out from under a "first()" locator here, causing a
+// genuine VARIANT_NOT_FOUND on the add-to-cart request. "Coffee" is part of
+// the fixed seed data and is never created/deleted by any test.
+const STABLE_PRODUCT_TEXT = "Coffee";
+
 test("add to cart updates the cart badge and drawer", async ({ page }) => {
   await page.goto("/");
   await page.waitForSelector(".product-grid .product-card");
 
-  const firstAddBtn = page.locator(".product-card .add-btn").first();
-  await firstAddBtn.click();
+  await page.locator(".product-card", { hasText: STABLE_PRODUCT_TEXT }).locator(".add-btn").click();
 
-  // /api/cart round-trips to a remote Neon instance and can genuinely take
-  // several seconds from local dev (measured 3.5-4.5s) — the default 5s
-  // expect timeout leaves too little margin. This isn't a race or a stale
-  // assertion, just realistic latency for this environment.
-  await expect(page.locator(".cart-btn i")).toHaveText("1", { timeout: 10_000 });
+  await expect(page.locator(".cart-btn i")).toHaveText("1");
 
   await page.locator(".cart-btn").click();
   await expect(page.locator(".cart-drawer")).toBeVisible();
@@ -39,7 +43,7 @@ test("add to cart updates the cart badge and drawer", async ({ page }) => {
 test("product detail page loads via a real product link", async ({ page }) => {
   await page.goto("/");
   await page.waitForSelector(".product-grid .product-card");
-  await page.locator(".product-card .product-image").first().click();
+  await page.locator(".product-card", { hasText: STABLE_PRODUCT_TEXT }).locator(".product-image").click();
 
   const modal = page.locator(".checkout-modal");
   await expect(modal).toBeVisible();
