@@ -91,34 +91,36 @@ export default function TeamPage() {
         {accounts === null && <p className="p-5 text-sm text-black/50">Loading…</p>}
         {accounts?.length === 0 && <p className="p-5 text-sm text-black/50">No accounts yet — add one above.</p>}
         {accounts && accounts.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-black/50 border-b border-black/5">
-                <th className="py-3 px-5">Name</th>
-                <th className="py-3 px-5">Email</th>
-                <th className="py-3 px-5">Role</th>
-                <th className="py-3 px-5" />
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((a) => (
-                <tr key={a.id} className="border-b border-black/5 last:border-0">
-                  <td className="py-3 px-5">{a.name}</td>
-                  <td className="py-3 px-5">{a.email}</td>
-                  <td className="py-3 px-5">
-                    <span className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 ${a.role === "OWNER" ? "bg-[#a12e3d]/10 text-[#a12e3d]" : "bg-black/5 text-black/50"}`}>
-                      {a.role}
-                    </span>
-                  </td>
-                  <td className="py-3 px-5 text-right">
-                    <button onClick={() => removeAccount(a.id)} className="text-black/40 hover:text-[#a12e3d]" aria-label="Remove">
-                      <Trash2 size={15} />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr className="text-left text-black/50 border-b border-black/5">
+                  <th className="py-3 px-5">Name</th>
+                  <th className="py-3 px-5">Email</th>
+                  <th className="py-3 px-5">Role</th>
+                  <th className="py-3 px-5" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {accounts.map((a) => (
+                  <tr key={a.id} className="border-b border-black/5 last:border-0">
+                    <td className="py-3 px-5">{a.name}</td>
+                    <td className="py-3 px-5">{a.email}</td>
+                    <td className="py-3 px-5">
+                      <span className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 ${a.role === "OWNER" ? "bg-[#a12e3d]/10 text-[#a12e3d]" : "bg-black/5 text-black/50"}`}>
+                        {a.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-5 text-right">
+                      <button onClick={() => removeAccount(a.id)} className="text-black/40 hover:text-[#a12e3d]" aria-label="Remove">
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </AdminShell>

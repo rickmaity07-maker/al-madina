@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX, BarChart3 } from "lucide-react";
+import { ClipboardList, LogOut, Package, ShoppingBag, Volume2, VolumeX, BarChart3, Menu, X } from "lucide-react";
 
 type AdminMe = { username: string; role: "OWNER" | "STAFF"; adminId: string | null };
 
@@ -12,6 +12,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [soundOn, setSoundOn] = useState(false);
   const [flash, setFlash] = useState(false);
   const [me, setMe] = useState<AdminMe | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const soundOnRef = useRef(false);
 
@@ -20,6 +21,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       .then((res) => res.json())
       .then((data) => setMe(data.admin));
   }, []);
+
+  // Close the mobile nav drawer whenever the route changes.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const saved = localStorage.getItem("almadina_admin_sound");
@@ -87,13 +93,55 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f3ee] flex">
+    <div className="min-h-screen bg-[#f4f3ee] lg:flex">
       <audio ref={audioRef} src="/notification.wav" preload="auto" />
       {flash && (
         <div className="fixed inset-0 pointer-events-none z-[999] ring-8 ring-[#a12e3d]/40 animate-pulse" />
       )}
 
-      <aside className="w-60 shrink-0 bg-white border-r border-black/5 flex flex-col p-5 sticky top-0 h-screen">
+      {/* Mobile top bar — the sidebar below becomes an off-canvas drawer under lg */}
+      <div className="lg:hidden flex items-center justify-between bg-white border-b border-black/5 px-4 py-3 sticky top-0 z-40">
+        <a href="/admin" className="flex items-center gap-2">
+          <img src="/logo.png" alt="Al-Madina" className="w-8 h-10 object-contain" />
+          <div className="font-serif text-base font-medium leading-tight">Al-Madina Admin</div>
+        </a>
+        <button
+          onClick={() => setNavOpen(true)}
+          aria-label="Open menu"
+          className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center"
+        >
+          <Menu size={18} />
+        </button>
+      </div>
+
+      {navOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setNavOpen(false)}>
+          <aside
+            className="w-72 max-w-[85vw] h-full bg-white p-5 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <a href="/admin" className="flex items-center gap-2">
+                <img src="/logo.png" alt="Al-Madina" className="w-10 h-12 object-contain" />
+                <div>
+                  <div className="font-serif text-base font-medium leading-tight">Al-Madina</div>
+                  <div className="text-[10px] uppercase tracking-wider text-black/40">Admin</div>
+                </div>
+              </a>
+              <button
+                onClick={() => setNavOpen(false)}
+                aria-label="Close menu"
+                className="w-9 h-9 rounded-lg bg-black/5 flex items-center justify-center shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <AdminNavContents me={me} isOwner={isOwner} navItems={navItems} pathname={pathname} soundOn={soundOn} toggleSound={toggleSound} handleLogout={handleLogout} />
+          </aside>
+        </div>
+      )}
+
+      <aside className="hidden lg:flex w-60 shrink-0 bg-white border-r border-black/5 flex-col p-5 sticky top-0 h-screen">
         <a href="/admin" className="flex items-center gap-2 mb-8">
           <img src="/logo.png" alt="Al-Madina" className="w-10 h-12 object-contain" />
           <div>
@@ -102,53 +150,77 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </a>
 
-        {me && (
-          <div className="mb-4 px-1">
-            <div className="text-sm font-medium truncate">{me.username}</div>
-            <span
-              className={`inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 mt-1 ${
-                isOwner ? "bg-[#a12e3d]/10 text-[#a12e3d]" : "bg-black/5 text-black/50"
-              }`}
-            >
-              {me.role}
-            </span>
-          </div>
-        )}
-
-        <nav className="flex flex-col gap-1">
-          {navItems.map(({ href, label, icon: Icon }) => (
-            <a
-              key={href}
-              href={href}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                pathname === href ? "bg-[#a12e3d] text-white" : "text-black/70 hover:bg-black/5"
-              }`}
-            >
-              <Icon size={16} /> {label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="mt-auto flex flex-col gap-2">
-          <button
-            onClick={toggleSound}
-            className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium border ${
-              soundOn ? "border-[#4f9d5f] text-[#2f6b3a] bg-[#4f9d5f]/10" : "border-black/10 text-black/60"
-            }`}
-          >
-            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            {soundOn ? "New-order sound: ON" : "Enable order sound"}
-          </button>
-          <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
-            <ShoppingBag size={16} /> View storefront
-          </a>
-          <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
-            <LogOut size={16} /> Log out
-          </button>
-        </div>
+        <AdminNavContents me={me} isOwner={isOwner} navItems={navItems} pathname={pathname} soundOn={soundOn} toggleSound={toggleSound} handleLogout={handleLogout} />
       </aside>
 
-      <main className="flex-1 p-8 max-w-[1400px]">{children}</main>
+      <main className="flex-1 p-4 lg:p-8 max-w-[1400px] overflow-x-hidden">{children}</main>
     </div>
+  );
+}
+
+function AdminNavContents({
+  me,
+  isOwner,
+  navItems,
+  pathname,
+  soundOn,
+  toggleSound,
+  handleLogout,
+}: {
+  me: AdminMe | null;
+  isOwner: boolean;
+  navItems: { href: string; label: string; icon: typeof ClipboardList }[];
+  pathname: string;
+  soundOn: boolean;
+  toggleSound: () => void;
+  handleLogout: () => void;
+}) {
+  return (
+    <>
+      {me && (
+        <div className="mb-4 px-1">
+          <div className="text-sm font-medium truncate">{me.username}</div>
+          <span
+            className={`inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 mt-1 ${
+              isOwner ? "bg-[#a12e3d]/10 text-[#a12e3d]" : "bg-black/5 text-black/50"
+            }`}
+          >
+            {me.role}
+          </span>
+        </div>
+      )}
+
+      <nav className="flex flex-col gap-1">
+        {navItems.map(({ href, label, icon: Icon }) => (
+          <a
+            key={href}
+            href={href}
+            className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+              pathname === href ? "bg-[#a12e3d] text-white" : "text-black/70 hover:bg-black/5"
+            }`}
+          >
+            <Icon size={16} /> {label}
+          </a>
+        ))}
+      </nav>
+
+      <div className="mt-auto flex flex-col gap-2">
+        <button
+          onClick={toggleSound}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium border ${
+            soundOn ? "border-[#4f9d5f] text-[#2f6b3a] bg-[#4f9d5f]/10" : "border-black/10 text-black/60"
+          }`}
+        >
+          {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          {soundOn ? "New-order sound: ON" : "Enable order sound"}
+        </button>
+        <a href="/" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
+          <ShoppingBag size={16} /> View storefront
+        </a>
+        <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-black/50 hover:bg-black/5">
+          <LogOut size={16} /> Log out
+        </button>
+      </div>
+    </>
   );
 }

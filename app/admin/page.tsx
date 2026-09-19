@@ -152,9 +152,9 @@ function OrderCard({ order, onAdvance }: { order: Order; onAdvance: (o: Order, s
         <div className="text-sm space-y-1.5">
           <div className="font-semibold">{order.customerName}</div>
           <div className="flex items-center gap-1.5 text-black/60"><Phone size={13} /> {order.customerPhone}</div>
-          <div className="flex items-center gap-1.5 text-black/60"><Mail size={13} /> {order.customerEmail}</div>
+          <div className="flex items-start gap-1.5 text-black/60"><Mail size={13} className="mt-0.5 shrink-0" /> <span className="break-all">{order.customerEmail}</span></div>
           {order.fulfillment === "DELIVERY" && (
-            <div className="flex items-start gap-1.5 text-black/60"><MapPin size={13} className="mt-0.5" /> {order.address}</div>
+            <div className="flex items-start gap-1.5 text-black/60"><MapPin size={13} className="mt-0.5 shrink-0" /> {order.address}</div>
           )}
           {order.notes && <div className="text-black/50 italic mt-1">“{order.notes}”</div>}
         </div>

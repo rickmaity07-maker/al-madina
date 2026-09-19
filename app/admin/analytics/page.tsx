@@ -93,7 +93,8 @@ export default function AnalyticsPage() {
       <div className="bg-white rounded-xl border border-black/5 p-5">
         <h2 className="font-semibold mb-4">Top products, last 30 days</h2>
         {data.topProducts.length === 0 && <p className="text-black/50 text-sm">No sales in this period yet.</p>}
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[360px]">
           <thead>
             <tr className="text-left text-black/50 border-b border-black/5">
               <th className="py-2">Product</th>
@@ -111,6 +112,7 @@ export default function AnalyticsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </AdminShell>
   );
