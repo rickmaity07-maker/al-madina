@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -95,6 +95,9 @@ export default function Home() {
   const [liked, setLiked] = useState<string[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [language, setLanguage] = useState<"de" | "en">("de");
@@ -142,6 +145,22 @@ export default function Home() {
       window.history.replaceState({}, "", "/");
     }
   }, []);
+
+  // Mobile search bar: scroll it into view + focus when opened from the hamburger menu,
+  // and auto-close on an outside tap since it isn't needed once you're done with it.
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+    mobileSearchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    mobileSearchInputRef.current?.focus();
+
+    function handleOutsideClick(e: MouseEvent) {
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(e.target as Node)) {
+        setMobileSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [mobileSearchOpen]);
 
   useEffect(() => {
     const items = Array.from(document.querySelectorAll<HTMLElement>(".reveal"));
@@ -390,6 +409,15 @@ export default function Home() {
                 <X size={18} />
               </button>
             </div>
+            <button
+              onClick={() => {
+                setMobileNavOpen(false);
+                setMobileSearchOpen(true);
+              }}
+            >
+              <Search size={17} /> {t("Produkte suchen", "Search products")}
+            </button>
+            <div className="mobile-nav-divider" />
             <a href="#shop" onClick={() => setMobileNavOpen(false)}>
               Shop
             </a>
@@ -542,10 +570,23 @@ export default function Home() {
             </select>
           </label>
         </div>
-        <div className="mobile-search md:hidden">
-          <Search size={17} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Produkte suchen…", "Search products…")} />
-        </div>
+        {mobileSearchOpen && (
+          <div className="mobile-search md:hidden" ref={mobileSearchRef}>
+            <Search size={17} />
+            <input
+              ref={mobileSearchInputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("Produkte suchen…", "Search products…")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setMobileSearchOpen(false);
+              }}
+            />
+            <button onClick={() => setMobileSearchOpen(false)} aria-label={t("Suche schließen", "Close search")}>
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         {loadingProducts && <div className="empty">{t("Produkte werden geladen…", "Loading products…")}</div>}
         {!loadingProducts && (
